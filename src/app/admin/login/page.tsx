@@ -1,14 +1,12 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { UtensilsCrossed, Lock, Mail, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
-export default function AdminLoginPage() {
+function AdminLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -22,7 +20,6 @@ export default function AdminLoginPage() {
       setError('You do not have admin access.')
       return
     }
-    // Already logged in? Seedha /admin pe bhejo
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
@@ -47,10 +44,7 @@ export default function AdminLoginPage() {
     }
 
     const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', data.user.id)
-      .single()
+      .from('user_roles').select('role').eq('user_id', data.user.id).single()
 
     if (roleData?.role !== 'admin') {
       await supabase.auth.signOut()
@@ -80,24 +74,19 @@ export default function AdminLoginPage() {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
-                type="email"
-                required
-                value={email}
+                type="email" required value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
                 placeholder="Enter email"
               />
             </div>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
+                type={showPassword ? 'text' : 'password'} required value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
                 placeholder="Enter password"
@@ -107,13 +96,9 @@ export default function AdminLoginPage() {
               </button>
             </div>
           </div>
-
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-              {error}
-            </div>
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>
           )}
-
           <Button type="submit" size="lg" className="w-full mt-2" loading={loading}>
             Login as Admin
           </Button>
@@ -121,11 +106,17 @@ export default function AdminLoginPage() {
 
         <p className="text-center mt-6 text-sm text-gray-400">
           Are you a manager?{' '}
-          <a href="/manager/login" className="text-orange-500 font-medium hover:underline">
-            Manager Login
-          </a>
+          <a href="/manager/login" className="text-orange-500 font-medium hover:underline">Manager Login</a>
         </p>
       </div>
     </div>
+  )
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-orange-50 flex items-center justify-center"><div className="w-8 h-8 border-4 border-orange-400 border-t-transparent rounded-full animate-spin" /></div>}>
+      <AdminLoginForm />
+    </Suspense>
   )
 }

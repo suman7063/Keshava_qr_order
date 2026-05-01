@@ -1,14 +1,12 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BarChart3, Lock, Mail, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
-export default function ManagerLoginPage() {
+function ManagerLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -38,10 +36,7 @@ export default function ManagerLoginPage() {
     }
 
     const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', data.user.id)
-      .single()
+      .from('user_roles').select('role').eq('user_id', data.user.id).single()
 
     if (roleData?.role !== 'manager' && roleData?.role !== 'admin') {
       await supabase.auth.signOut()
@@ -71,24 +66,19 @@ export default function ManagerLoginPage() {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
-                type="email"
-                required
-                value={email}
+                type="email" required value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:text-gray-400"
                 placeholder="Enter email"
               />
             </div>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
+                type={showPassword ? 'text' : 'password'} required value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:text-gray-400"
                 placeholder="Enter password"
@@ -98,30 +88,27 @@ export default function ManagerLoginPage() {
               </button>
             </div>
           </div>
-
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-              {error}
-            </div>
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>
           )}
-
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full mt-2 bg-purple-600 hover:bg-purple-700"
-            loading={loading}
-          >
+          <Button type="submit" size="lg" className="w-full mt-2 bg-purple-600 hover:bg-purple-700" loading={loading}>
             Login as Manager
           </Button>
         </form>
 
         <p className="text-center mt-6 text-sm text-gray-400">
           Are you an admin?{' '}
-          <a href="/admin/login" className="text-orange-500 font-medium hover:underline">
-            Admin Login
-          </a>
+          <a href="/admin/login" className="text-orange-500 font-medium hover:underline">Admin Login</a>
         </p>
       </div>
     </div>
+  )
+}
+
+export default function ManagerLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-purple-50 flex items-center justify-center"><div className="w-8 h-8 border-4 border-purple-400 border-t-transparent rounded-full animate-spin" /></div>}>
+      <ManagerLoginForm />
+    </Suspense>
   )
 }
