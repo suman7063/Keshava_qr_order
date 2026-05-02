@@ -6,8 +6,12 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
-import { QrCode, Plus, Trash2, Download, Pencil } from 'lucide-react'
+import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList } from 'lucide-react'
 import QRCode from 'qrcode'
+import { formatCurrency } from '@/lib/utils'
+
+interface OrderItem { id: string; quantity: number; total_price: number; menu_item?: { name: string } }
+interface TableOrder { id: string; customer_name?: string; status: string; total_amount: number; created_at: string; items?: OrderItem[] }
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
 
@@ -35,6 +39,9 @@ export default function TablesPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ table_number: '', capacity: 4 })
   const [editForm, setEditForm] = useState<{ table_number: string; capacity: number; status: TableStatus }>({ table_number: '', capacity: 4, status: 'available' })
+  const [detailTable, setDetailTable] = useState<RestaurantTable | null>(null)
+  const [detailOrders, setDetailOrders] = useState<TableOrder[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
 
   async function fetchTables() {
     const res = await fetch('/api/tables')
@@ -43,6 +50,19 @@ export default function TablesPage() {
   }
 
   useEffect(() => { fetchTables() }, [])
+
+  async function openDetails(table: RestaurantTable) {
+    setDetailTable(table)
+    setDetailOrders([])
+    setDetailLoading(true)
+    const res = await fetch(`/api/sessions?table_id=${table.id}`)
+    const { session } = await res.json()
+    if (session) {
+      const ordersRes = await fetch(`/api/orders?session_id=${session.id}`)
+      setDetailOrders(await ordersRes.json())
+    }
+    setDetailLoading(false)
+  }
 
   async function addTable() {
     setSaving(true)
@@ -132,6 +152,11 @@ export default function TablesPage() {
                 <Button variant="outline" size="sm" onClick={() => openEdit(table)} className="flex-1">
                   <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
                 </Button>
+                {table.status === 'occupied' && (
+                  <Button variant="ghost" size="sm" onClick={() => openDetails(table)} title="View Orders">
+                    <ClipboardList className="w-4 h-4 text-blue-400" />
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={() => deleteTable(table.id)}>
                   <Trash2 className="w-4 h-4 text-red-400" />
                 </Button>
@@ -204,6 +229,56 @@ export default function TablesPage() {
             <Download className="w-4 h-4 mr-2" /> Download QR Code
           </Button>
         </div>
+      </Modal>
+
+      {/* Orders Detail Modal */}
+      <Modal isOpen={!!detailTable} onClose={() => setDetailTable(null)}
+        title={`Orders — Table ${detailTable?.table_number}`}>
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          {detailLoading ? (
+            <p className="text-gray-400 text-sm text-center py-6">Loading...</p>
+          ) : detailOrders.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center py-6">No active orders for this table</p>
+          ) : detailOrders.map((order, i) => (
+            <div key={order.id} className={`bg-gray-50 rounded-xl p-4 ${order.status === 'cancelled' ? 'opacity-50' : ''}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-xs">
+                    {order.customer_name?.[0]?.toUpperCase() || (i + 1)}
+                  </div>
+                  <p className="font-semibold text-gray-900 text-sm">{order.customer_name || `Order ${i + 1}`}</p>
+                </div>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${
+                  order.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                  order.status === 'pending' ? 'bg-orange-100 text-orange-600' :
+                  order.status === 'cancelled' ? 'bg-gray-100 text-gray-500' :
+                  'bg-blue-100 text-blue-700'}`}>
+                  {order.status}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {order.items?.map(item => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span className="text-gray-700">{item.menu_item?.name}{item.quantity > 1 && <span className="font-semibold text-orange-500"> ×{item.quantity}</span>}</span>
+                    <span className="text-gray-500">{formatCurrency(item.total_price)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between text-sm font-bold">
+                <span className="text-gray-700">Order Total</span>
+                <span className="text-orange-600">{formatCurrency(order.total_amount)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        {detailOrders.filter(o => o.status !== 'cancelled').length > 0 && (
+          <div className="border-t border-gray-100 pt-4 mt-2 flex justify-between items-center">
+            <span className="font-bold text-gray-900">Grand Total</span>
+            <span className="text-xl font-bold text-orange-600">
+              {formatCurrency(detailOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + o.total_amount, 0))}
+            </span>
+          </div>
+        )}
       </Modal>
     </div>
   )

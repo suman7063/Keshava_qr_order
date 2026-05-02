@@ -78,7 +78,7 @@ export default function ManagerPage() {
     const items = order.items?.map(i =>
       `<tr>
         <td style="padding:4px 8px;font-size:14px;">${i.menu_item?.name || ''}</td>
-        <td style="padding:4px 8px;font-size:14px;text-align:right;font-weight:bold;">×${i.quantity}</td>
+        <td style="padding:4px 8px;font-size:14px;text-align:right;font-weight:bold;">${i.quantity > 1 ? `×${i.quantity}` : ''}</td>
       </tr>`
     ).join('')
 
@@ -379,7 +379,7 @@ export default function ManagerPage() {
                         return (
                           <div key={item.id} className={`flex items-center justify-between text-sm gap-2 ${removed ? 'opacity-40' : ''}`}>
                             <span className={`flex-1 ${removed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
-                              {item.menu_item?.name} <span className="font-bold text-orange-500">×{item.quantity}</span>
+                              {item.menu_item?.name}{item.quantity > 1 && <span className="font-bold text-orange-500"> ×{item.quantity}</span>}
                             </span>
                             <span className={`font-medium ${removed ? 'text-gray-300' : 'text-gray-500'}`}>{formatCurrency(item.total_price)}</span>
                             <button onClick={() => toggleRemoveItem(order.id, item.id, item.menu_item?.name || 'item')}
