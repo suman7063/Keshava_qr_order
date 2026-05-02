@@ -78,7 +78,7 @@ export default function ManagerPage() {
     const items = order.items?.map(i =>
       `<tr>
         <td style="padding:4px 8px;font-size:14px;">${i.menu_item?.name || ''}</td>
-        <td style="padding:4px 8px;font-size:14px;text-align:center;font-weight:bold;">x${i.quantity}</td>
+        <td style="padding:4px 8px;font-size:14px;text-align:right;font-weight:bold;">×${i.quantity}</td>
       </tr>`
     ).join('')
 
@@ -129,10 +129,11 @@ export default function ManagerPage() {
     setUpdatingId(null)
   }
 
-  function toggleRemoveItem(orderId: string, itemId: string) {
+  function toggleRemoveItem(orderId: string, itemId: string, itemName: string) {
     setRemovedItems(prev => {
       const current = prev[orderId] || []
       const already = current.includes(itemId)
+      if (!already && !confirm(`Remove "${itemName}" from this order?`)) return prev
       return { ...prev, [orderId]: already ? current.filter(i => i !== itemId) : [...current, itemId] }
     })
   }
@@ -378,10 +379,10 @@ export default function ManagerPage() {
                         return (
                           <div key={item.id} className={`flex items-center justify-between text-sm gap-2 ${removed ? 'opacity-40' : ''}`}>
                             <span className={`flex-1 ${removed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
-                              <span className="font-bold text-orange-500">×{item.quantity}</span> {item.menu_item?.name}
+                              {item.menu_item?.name} <span className="font-bold text-orange-500">×{item.quantity}</span>
                             </span>
                             <span className={`font-medium ${removed ? 'text-gray-300' : 'text-gray-500'}`}>{formatCurrency(item.total_price)}</span>
-                            <button onClick={() => toggleRemoveItem(order.id, item.id)}
+                            <button onClick={() => toggleRemoveItem(order.id, item.id, item.menu_item?.name || 'item')}
                               className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${removed ? 'bg-gray-200 text-gray-400' : 'bg-red-100 text-red-500 hover:bg-red-200'}`}>
                               {removed ? '↩' : '×'}
                             </button>

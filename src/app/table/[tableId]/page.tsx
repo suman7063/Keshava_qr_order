@@ -535,7 +535,7 @@ export default function TablePage() {
                         {order.items?.map(item => (
                           <div key={item.id} className="flex justify-between text-sm">
                             <span className="text-gray-700">
-                              <span className="font-semibold text-orange-500">×{item.quantity}</span> {item.menu_item?.name}
+                              {item.menu_item?.name} <span className="font-semibold text-orange-500">×{item.quantity}</span>
                             </span>
                             <span className="text-gray-600 font-medium">{formatCurrency(item.total_price)}</span>
                           </div>
