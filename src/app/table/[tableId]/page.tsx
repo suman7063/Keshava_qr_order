@@ -195,6 +195,13 @@ export default function TablePage() {
         if (existing) {
           setSession(existing)
           setBillRequested(existing.bill_requested || false)
+          // Restore OTP on same device if localStorage was cleared (e.g. phone restart)
+          const savedOtp = localStorage.getItem(`otp-${tableId}`)
+          if (!savedOtp && existing.otp) {
+            localStorage.setItem(`otp-${tableId}`, existing.otp)
+            setGeneratedOtp(existing.otp)
+            setShowOtpBadge(true)
+          }
         } else {
           // Session closed — clear OTP
           localStorage.removeItem(`otp-${tableId}`)
