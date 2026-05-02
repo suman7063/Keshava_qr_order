@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatDate } from '@/lib/utils'
 import { Users, XCircle, RefreshCw } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface Session {
   id: string
@@ -21,8 +22,10 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [closingId, setClosingId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'active' | 'closed'>('active')
 
   async function fetchSessions() {
+    setLoading(true)
     const res = await fetch('/api/sessions/all')
     setSessions(await res.json())
     setLoading(false)
@@ -57,19 +60,53 @@ export default function SessionsPage() {
         </Button>
       </div>
 
-      {/* Active Sessions */}
-      <div className="mb-8">
-        <h2 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
-          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          Active Sessions ({active.length})
-        </h2>
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b border-gray-200 pb-0">
+        <button
+          onClick={() => setActiveTab('active')}
+          className={cn(
+            'px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            activeTab === 'active'
+              ? 'border-orange-500 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          Active Sessions
+          <span className={cn(
+            'ml-2 text-xs font-bold px-2 py-0.5 rounded-full',
+            activeTab === 'active' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'
+          )}>
+            {active.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('closed')}
+          className={cn(
+            'px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            activeTab === 'closed'
+              ? 'border-orange-500 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          Closed Sessions
+          <span className={cn(
+            'ml-2 text-xs font-bold px-2 py-0.5 rounded-full',
+            activeTab === 'closed' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'
+          )}>
+            {closed.length}
+          </span>
+        </button>
+      </div>
 
-        {loading ? (
+      {/* Active Sessions Tab */}
+      {activeTab === 'active' && (
+        loading ? (
           <p className="text-gray-400 text-sm">Loading...</p>
         ) : active.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center">
-            <Users className="w-10 h-10 text-gray-200 mx-auto mb-2" />
-            <p className="text-gray-400 text-sm">No active sessions</p>
+          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-14 text-center">
+            <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-400 font-medium">No active sessions</p>
+            <p className="text-gray-300 text-sm mt-1">Sessions will appear when customers place orders</p>
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -95,7 +132,7 @@ export default function SessionsPage() {
                     <td className="px-5 py-4">
                       {s.bill_requested
                         ? <Badge variant="warning">Requested</Badge>
-                        : <Badge variant="default">Not yet</Badge>}
+                        : <Badge variant="default">Pending</Badge>}
                     </td>
                     <td className="px-5 py-4 text-right">
                       <Button
@@ -112,13 +149,19 @@ export default function SessionsPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        )
+      )}
 
-      {/* Closed Sessions */}
-      {closed.length > 0 && (
-        <div>
-          <h2 className="text-base font-semibold text-gray-500 mb-3">Closed Sessions ({closed.length})</h2>
+      {/* Closed Sessions Tab */}
+      {activeTab === 'closed' && (
+        loading ? (
+          <p className="text-gray-400 text-sm">Loading...</p>
+        ) : closed.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-14 text-center">
+            <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-400 font-medium">No closed sessions yet</p>
+          </div>
+        ) : (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
@@ -130,18 +173,18 @@ export default function SessionsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {closed.slice(0, 20).map(s => (
-                  <tr key={s.id} className="hover:bg-gray-50/50 opacity-60">
-                    <td className="px-5 py-3 font-medium text-gray-700">Table {s.table?.table_number}</td>
-                    <td className="px-5 py-3 text-gray-600">{s.customer_name || '—'}</td>
-                    <td className="px-5 py-3 text-gray-400 text-xs">{formatDate(s.started_at)}</td>
-                    <td className="px-5 py-3 text-gray-400 text-xs">{s.ended_at ? formatDate(s.ended_at) : '—'}</td>
+                {closed.map(s => (
+                  <tr key={s.id} className="hover:bg-gray-50/50">
+                    <td className="px-5 py-4 font-medium text-gray-700">Table {s.table?.table_number}</td>
+                    <td className="px-5 py-4 text-gray-600">{s.customer_name || '—'}</td>
+                    <td className="px-5 py-4 text-gray-400 text-xs">{formatDate(s.started_at)}</td>
+                    <td className="px-5 py-4 text-gray-400 text-xs">{s.ended_at ? formatDate(s.ended_at) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        )
       )}
     </div>
   )

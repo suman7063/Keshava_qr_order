@@ -175,7 +175,7 @@ export default function MenuPage() {
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
             <input
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-500"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               placeholder="Item name"
@@ -185,7 +185,7 @@ export default function MenuPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
               rows={2}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none text-gray-900 placeholder:text-gray-400"
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               placeholder="Short description"
@@ -197,7 +197,7 @@ export default function MenuPage() {
               type="number"
               min="0"
               step="0.01"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-500"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
               value={form.price}
               onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
               placeholder="0.00"
@@ -208,7 +208,7 @@ export default function MenuPage() {
             <input
               type="number"
               min="0"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-500"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
               value={form.prep_time_minutes}
               onChange={e => setForm(f => ({ ...f, prep_time_minutes: e.target.value }))}
               placeholder="e.g. 15"
@@ -217,7 +217,7 @@ export default function MenuPage() {
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
             <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-500"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
               value={form.category_id}
               onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
             >
