@@ -9,11 +9,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const { password } = await request.json()
-  if (!password || password.length < 6) return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+  const { password, name, avatar_url } = await request.json()
 
   const admin = createAdminClient()
-  const { error } = await admin.auth.admin.updateUserById(id, { password })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updates: Record<string, any> = {}
+  if (password) {
+    if (password.length < 6) return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+    updates.password = password
+  }
+  if (name !== undefined || avatar_url !== undefined) {
+    updates.user_metadata = {}
+    if (name !== undefined) updates.user_metadata.name = name
+    if (avatar_url !== undefined) updates.user_metadata.avatar_url = avatar_url
+  }
+  if (Object.keys(updates).length === 0) return NextResponse.json({ success: true })
+
+  const { error } = await admin.auth.admin.updateUserById(id, updates)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ success: true })

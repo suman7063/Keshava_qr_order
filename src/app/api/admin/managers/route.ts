@@ -18,13 +18,14 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Har manager ki email bhi laao
   const managers = await Promise.all(
     (roles || []).map(async (r) => {
       const { data } = await admin.auth.admin.getUserById(r.user_id)
       return {
         user_id: r.user_id,
         email: data.user?.email || '',
+        name: (data.user?.user_metadata?.name as string) || '',
+        avatar_url: (data.user?.user_metadata?.avatar_url as string) || '',
         created_at: r.created_at,
       }
     })
@@ -39,16 +40,16 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { email, password } = await request.json()
-  if (!email || !password) return NextResponse.json({ error: 'Email aur password chahiye' }, { status: 400 })
+  const { email, password, name, avatar_url } = await request.json()
+  if (!email || !password) return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
 
   const admin = createAdminClient()
 
-  // Supabase Auth mein user banao
   const { data: newUser, error: createError } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
+    user_metadata: { name: name || '', avatar_url: avatar_url || '' },
   })
 
   if (createError) return NextResponse.json({ error: createError.message }, { status: 500 })
