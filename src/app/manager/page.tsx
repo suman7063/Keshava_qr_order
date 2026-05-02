@@ -72,6 +72,51 @@ export default function ManagerPage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
+  function printKOT(order: Order) {
+    const now = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+    const items = order.items?.map(i =>
+      `<tr>
+        <td style="padding:4px 8px;font-size:14px;">${i.menu_item?.name || ''}</td>
+        <td style="padding:4px 8px;font-size:14px;text-align:center;font-weight:bold;">x${i.quantity}</td>
+      </tr>`
+    ).join('')
+
+    const html = `
+      <html><head><title>KOT</title>
+      <style>
+        body { font-family: monospace; width: 280px; margin: 0 auto; padding: 12px; }
+        h2 { text-align: center; font-size: 18px; margin: 0 0 4px; }
+        .sub { text-align: center; font-size: 12px; color: #555; margin-bottom: 12px; }
+        .divider { border-top: 1px dashed #000; margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th { font-size: 12px; text-transform: uppercase; color: #888; padding: 4px 8px; text-align: left; }
+        .footer { text-align: center; font-size: 11px; color: #888; margin-top: 12px; }
+      </style></head>
+      <body>
+        <h2>KOT</h2>
+        <div class="sub">The QR Kitchen</div>
+        <div class="divider"></div>
+        <p style="margin:4px 0;font-size:14px;"><strong>Table:</strong> ${order.table?.table_number || '—'}</p>
+        <p style="margin:4px 0;font-size:14px;"><strong>Order#:</strong> ${order.id.slice(-6).toUpperCase()}</p>
+        <p style="margin:4px 0;font-size:12px;color:#555;">${now}</p>
+        <div class="divider"></div>
+        <table>
+          <thead><tr><th>Item</th><th style="text-align:center;">Qty</th></tr></thead>
+          <tbody>${items}</tbody>
+        </table>
+        <div class="divider"></div>
+        <div class="footer">— Kitchen Copy —</div>
+      </body></html>`
+
+    const win = window.open('', '_blank', 'width=320,height=500')
+    if (!win) return
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    win.print()
+    win.close()
+  }
+
   async function updateStatus(orderId: string, status: OrderStatus) {
     setUpdatingId(orderId)
     await fetch(`/api/orders/${orderId}`, {
@@ -79,6 +124,18 @@ export default function ManagerPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     })
+    await fetchOrders()
+    setUpdatingId(null)
+  }
+
+  async function acceptOrder(order: Order) {
+    setUpdatingId(order.id)
+    await fetch(`/api/orders/${order.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'confirmed' }),
+    })
+    printKOT(order)
     await fetchOrders()
     setUpdatingId(null)
   }
@@ -317,8 +374,8 @@ export default function ManagerPage() {
                       </p>
                     )}
                     <div className="flex gap-2">
-                      <Button size="sm" className="flex-1" loading={updatingId === order.id} onClick={() => updateStatus(order.id, 'confirmed')}>
-                        <CheckCircle className="w-4 h-4 mr-1" /> Accept
+                      <Button size="sm" className="flex-1" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
+                        <CheckCircle className="w-4 h-4 mr-1" /> Accept & Print
                       </Button>
                       <Button size="sm" variant="danger" loading={updatingId === order.id} onClick={() => updateStatus(order.id, 'cancelled')}>
                         <XCircle className="w-4 h-4" />
@@ -369,8 +426,8 @@ export default function ManagerPage() {
                       <td className="py-3 px-4 text-gray-400 text-xs">{formatDate(order.created_at)}</td>
                       <td className="py-3 px-4">
                         {order.status === 'pending' && (
-                          <Button size="sm" loading={updatingId === order.id} onClick={() => updateStatus(order.id, 'confirmed')}>
-                            Accept
+                          <Button size="sm" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
+                            Accept & Print
                           </Button>
                         )}
                       </td>

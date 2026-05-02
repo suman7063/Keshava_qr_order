@@ -188,13 +188,17 @@ export default function TablePage() {
   }
 
   useEffect(() => {
-    // On load, check if session exists to show "My Orders" button
     fetch(`/api/sessions?table_id=${tableId}`)
       .then(r => r.json())
       .then(({ session: existing }) => {
         if (existing) {
           setSession(existing)
           setBillRequested(existing.bill_requested || false)
+        } else {
+          // Session closed — clear OTP
+          localStorage.removeItem(`otp-${tableId}`)
+          setGeneratedOtp('')
+          setShowOtpBadge(false)
         }
       })
   }, [tableId])
@@ -502,16 +506,6 @@ export default function TablePage() {
                             <p className="text-xs text-gray-400">{formatDate(order.created_at)}</p>
                           </div>
                         </div>
-                        <span className={cn(
-                          'text-xs font-semibold px-2.5 py-1 rounded-full capitalize',
-                          order.status === 'pending' ? 'bg-red-100 text-red-700' :
-                          order.status === 'preparing' ? 'bg-blue-100 text-blue-700' :
-                          order.status === 'ready' ? 'bg-green-100 text-green-700' :
-                          order.status === 'served' ? 'bg-gray-100 text-gray-600' :
-                          'bg-yellow-100 text-yellow-700'
-                        )}>
-                          {order.status}
-                        </span>
                       </div>
 
                       {/* Items */}
@@ -533,6 +527,11 @@ export default function TablePage() {
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* Cancel note */}
+                <div className="px-5 pt-3 pb-1">
+                  <p className="text-xs text-gray-400 text-center">To cancel an order, please speak to our staff.</p>
                 </div>
 
                 {/* Grand Total + Bill Button */}
