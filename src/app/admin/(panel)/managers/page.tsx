@@ -57,7 +57,7 @@ function AvatarPicker({ preview, onChange }: { preview: string; onChange: (file:
   const ref = useRef<HTMLInputElement>(null)
   return (
     <div className="flex items-center gap-4">
-      <div className="relative w-16 h-16 shrink-0">
+      <div className="relative w-16 h-16 shrink-0 cursor-pointer" onClick={() => ref.current?.click()}>
         {preview ? (
           <Image src={preview} alt="Preview" width={64} height={64} className="w-16 h-16 rounded-full object-cover border border-gray-200" />
         ) : (
@@ -65,16 +65,12 @@ function AvatarPicker({ preview, onChange }: { preview: string; onChange: (file:
             <Camera className="w-6 h-6 text-gray-400" />
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => ref.current?.click()}
-          className="absolute bottom-0 right-0 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow"
-        >
+        <div className="absolute bottom-0 right-0 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow">
           <Camera className="w-3.5 h-3.5 text-white" />
-        </button>
+        </div>
       </div>
       <div>
-        <button type="button" onClick={() => ref.current?.click()} className="text-sm font-medium text-orange-600 hover:text-orange-700">
+        <button type="button" onClick={() => ref.current?.click()} className="text-sm font-medium text-orange-600 hover:text-orange-700 cursor-pointer">
           Upload photo
         </button>
         <p className="text-xs text-gray-400 mt-0.5">JPG, PNG or WebP · Max 2MB</p>
