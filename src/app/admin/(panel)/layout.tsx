@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { LayoutDashboard, UtensilsCrossed, Table2, ChefHat, BarChart3, LogOut, Users, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, UtensilsCrossed, Table2, BarChart3, LogOut, Users, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
@@ -11,7 +11,6 @@ const navItems = [
   { href: '/admin/tables', label: 'Tables', icon: Table2 },
   { href: '/admin/managers', label: 'Managers', icon: Users },
   { href: '/admin/sessions', label: 'Sessions', icon: ClipboardList },
-  { href: '/kitchen', label: 'Kitchen', icon: ChefHat },
   { href: '/manager', label: 'Manager View', icon: BarChart3 },
 ]
 

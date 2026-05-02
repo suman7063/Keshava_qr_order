@@ -27,6 +27,7 @@ export default function TablePage() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [otpInput, setOtpInput] = useState('')
+  const [guestName, setGuestName] = useState('')
   const [generatedOtp, setGeneratedOtp] = useState('')
   const [otpError, setOtpError] = useState('')
   const [showBillConfirm, setShowBillConfirm] = useState(false)
@@ -160,7 +161,7 @@ export default function TablePage() {
       setPlacing(false)
       return
     }
-    await placeOrder(data.session, 'Guest')
+    await placeOrder(data.session, guestName.trim() || 'Guest')
   }
 
   async function requestBill() {
@@ -463,6 +464,16 @@ export default function TablePage() {
                       <span className="font-semibold">Ask the first customer for their OTP.</span>
                     </p>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Your Name</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input type="text"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:text-gray-400"
+                        placeholder="Enter your name"
+                        value={guestName} onChange={e => setGuestName(e.target.value)} />
+                    </div>
+                  </div>
                   <input type="number"
                     className="w-full text-center text-4xl font-bold tracking-widest py-4 border-2 border-gray-200 rounded-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:text-gray-300"
                     placeholder="------" maxLength={6}
@@ -506,6 +517,11 @@ export default function TablePage() {
                             <p className="text-xs text-gray-400">{formatDate(order.created_at)}</p>
                           </div>
                         </div>
+                        {order.status === 'confirmed' && (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                            Confirmed ✓
+                          </span>
+                        )}
                       </div>
 
                       {/* Items */}
