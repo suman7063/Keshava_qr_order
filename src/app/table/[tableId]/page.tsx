@@ -520,7 +520,7 @@ export default function TablePage() {
                         </div>
                         {order.status === 'pending' && (
                           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 text-orange-600">
-                            Pending
+                            Pending Approval
                           </span>
                         )}
                         {order.status === 'confirmed' && (

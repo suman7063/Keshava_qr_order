@@ -38,6 +38,7 @@ export default function ManagerPage() {
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [managerEmail, setManagerEmail] = useState('')
+  const [removedItems, setRemovedItems] = useState<Record<string, string[]>>({})
   const [managerName, setManagerName] = useState('')
   const [managerAvatar, setManagerAvatar] = useState('')
 
@@ -128,14 +129,31 @@ export default function ManagerPage() {
     setUpdatingId(null)
   }
 
+  function toggleRemoveItem(orderId: string, itemId: string) {
+    setRemovedItems(prev => {
+      const current = prev[orderId] || []
+      const already = current.includes(itemId)
+      return { ...prev, [orderId]: already ? current.filter(i => i !== itemId) : [...current, itemId] }
+    })
+  }
+
   async function acceptOrder(order: Order) {
     setUpdatingId(order.id)
+    const itemsToRemove = removedItems[order.id] || []
+    const body: Record<string, unknown> = { status: 'confirmed' }
+    if (itemsToRemove.length) body.remove_item_ids = itemsToRemove
+
     await fetch(`/api/orders/${order.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'confirmed' }),
+      body: JSON.stringify(body),
     })
-    printKOT(order)
+    const modifiedOrder = {
+      ...order,
+      items: order.items?.filter(i => !itemsToRemove.includes(i.id)),
+    }
+    printKOT(modifiedOrder)
+    setRemovedItems(prev => { const n = { ...prev }; delete n[order.id]; return n })
     await fetchOrders()
     setUpdatingId(null)
   }
@@ -355,17 +373,29 @@ export default function ManagerPage() {
                       <span className="bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 rounded-full">NEW</span>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-3 space-y-1.5 mb-4">
-                      {order.items?.map(item => (
-                        <div key={item.id} className="flex justify-between text-sm">
-                          <span className="text-gray-700">
-                            <span className="font-bold text-orange-500">×{item.quantity}</span> {item.menu_item?.name}
-                          </span>
-                          <span className="text-gray-500 font-medium">{formatCurrency(item.total_price)}</span>
-                        </div>
-                      ))}
+                      {order.items?.map(item => {
+                        const removed = (removedItems[order.id] || []).includes(item.id)
+                        return (
+                          <div key={item.id} className={`flex items-center justify-between text-sm gap-2 ${removed ? 'opacity-40' : ''}`}>
+                            <span className={`flex-1 ${removed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                              <span className="font-bold text-orange-500">×{item.quantity}</span> {item.menu_item?.name}
+                            </span>
+                            <span className={`font-medium ${removed ? 'text-gray-300' : 'text-gray-500'}`}>{formatCurrency(item.total_price)}</span>
+                            <button onClick={() => toggleRemoveItem(order.id, item.id)}
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${removed ? 'bg-gray-200 text-gray-400' : 'bg-red-100 text-red-500 hover:bg-red-200'}`}>
+                              {removed ? '↩' : '×'}
+                            </button>
+                          </div>
+                        )
+                      })}
                       <div className="border-t border-gray-200 pt-2 mt-1 flex justify-between text-sm font-bold">
                         <span className="text-gray-800">Total</span>
-                        <span className="text-orange-600">{formatCurrency(order.total_amount)}</span>
+                        <span className="text-orange-600">
+                          {formatCurrency(
+                            order.items?.filter(i => !(removedItems[order.id] || []).includes(i.id))
+                              .reduce((s, i) => s + i.total_price, 0) ?? order.total_amount
+                          )}
+                        </span>
                       </div>
                     </div>
                     {order.notes && (
