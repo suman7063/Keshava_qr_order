@@ -10,20 +10,30 @@ import { Button } from '@/components/ui/Button'
 import {
   BarChart3, DollarSign, ShoppingBag, TrendingUp, Clock,
   CheckCircle, XCircle, LogOut, RefreshCw, AlertCircle,
-  ClipboardList, LayoutDashboard, ChefHat
+  ClipboardList, LayoutDashboard, ChefHat, FileText
 } from 'lucide-react'
+
+interface BillSession {
+  id: string
+  table_id: string
+  customer_name?: string
+  started_at: string
+  bill_requested: boolean
+  table?: { table_number: string }
+}
 
 const STATUS_VARIANT: Record<OrderStatus, 'warning' | 'info' | 'secondary' | 'success' | 'default' | 'danger'> = {
   pending: 'danger', confirmed: 'warning', preparing: 'info',
   ready: 'secondary', served: 'success', cancelled: 'default',
 }
 
-type Tab = 'overview' | 'new-orders' | 'all-orders'
+type Tab = 'overview' | 'new-orders' | 'all-orders' | 'bill-requests'
 
 export default function ManagerPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [orders, setOrders] = useState<Order[]>([])
+  const [billSessions, setBillSessions] = useState<BillSession[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
@@ -35,18 +45,25 @@ export default function ManagerPage() {
     setLoading(false)
   }
 
+  async function fetchBillRequests() {
+    const res = await fetch('/api/sessions?bill_requested=true')
+    const data = await res.json()
+    setBillSessions(Array.isArray(data) ? data : [])
+  }
+
   useEffect(() => {
     fetchOrders()
+    fetchBillRequests()
     const supabase = createClient()
 
-    // Logged-in manager ka email fetch karo
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.email) setManagerEmail(user.email)
     })
 
     const channel = supabase
-      .channel('manager-orders')
+      .channel('manager-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, fetchBillRequests)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [])
@@ -97,6 +114,7 @@ export default function ManagerPage() {
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'new-orders', label: 'New Orders', icon: <AlertCircle className="w-4 h-4" />, count: pendingOrders.length },
     { id: 'all-orders', label: 'All Orders', icon: <ClipboardList className="w-4 h-4" /> },
+    { id: 'bill-requests', label: 'Bill Requests', icon: <FileText className="w-4 h-4" />, count: billSessions.length },
   ]
 
   return (
@@ -340,6 +358,45 @@ export default function ManagerPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* ── TAB: BILL REQUESTS ── */}
+        {activeTab === 'bill-requests' && (
+          <div>
+            {billSessions.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
+                <FileText className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                <p className="text-gray-400 font-medium">No bill requests</p>
+                <p className="text-gray-300 text-sm mt-1">Tables requesting bill will appear here</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {billSessions.map(s => (
+                  <div key={s.id} className="bg-white rounded-2xl border-2 border-orange-200 shadow-md p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-xl font-bold text-gray-900">Table {s.table?.table_number}</p>
+                        {s.customer_name && (
+                          <p className="text-sm text-gray-500 mt-0.5">Customer: {s.customer_name}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-orange-100 text-orange-700 px-3 py-1.5 rounded-full text-xs font-bold">
+                        <FileText className="w-3.5 h-3.5" /> Bill Ready
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Requested at {new Date(s.started_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    <div className="mt-4 pt-3 border-t border-gray-100">
+                      <p className="text-xs text-orange-500 font-medium">
+                        Customer has requested the bill — please attend to Table {s.table?.table_number}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

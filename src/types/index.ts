@@ -55,6 +55,7 @@ export interface Order {
   status: OrderStatus
   total_amount: number
   notes?: string
+  customer_name?: string
   created_at: string
   updated_at: string
   session?: TableSession

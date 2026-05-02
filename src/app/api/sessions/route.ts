@@ -5,12 +5,25 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-// Check active session for a table
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
   const table_id = searchParams.get('table_id')
+  const bill_requested = searchParams.get('bill_requested')
 
+  // Bill requested sessions — manager ke liye
+  if (bill_requested === 'true') {
+    const { data, error } = await supabase
+      .from('table_sessions')
+      .select('*, table:restaurant_tables(*)')
+      .eq('status', 'active')
+      .eq('bill_requested', true)
+      .order('started_at', { ascending: false })
+    if (error) return NextResponse.json([])
+    return NextResponse.json(data)
+  }
+
+  // Single table ka active session
   const { data, error } = await supabase
     .from('table_sessions')
     .select('*, table:restaurant_tables(*)')

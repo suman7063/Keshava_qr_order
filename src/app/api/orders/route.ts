@@ -28,19 +28,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const supabase = await createClient()
   const body = await request.json()
-  const { session_id, table_id, items, notes } = body
+  const { session_id, table_id, items, notes, customer_name } = body
 
-  // Calculate total
   const total_amount = items.reduce(
     (sum: number, item: { unit_price: number; quantity: number }) =>
       sum + item.unit_price * item.quantity,
     0
   )
 
-  // Create order
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .insert({ session_id, table_id, total_amount, notes })
+    .insert({ session_id, table_id, total_amount, notes, customer_name })
     .select()
     .single()
 
