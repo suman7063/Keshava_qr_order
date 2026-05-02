@@ -33,17 +33,21 @@ export default function TablePage() {
   const [billRequested, setBillRequested] = useState(false)
   const [requestingBill, setRequestingBill] = useState(false)
   const [currentCustomerName, setCurrentCustomerName] = useState('')
+  const [tableNumber, setTableNumber] = useState('')
+  const [showOtpBadge, setShowOtpBadge] = useState(false)
 
   useEffect(() => {
     async function load() {
       try {
-        const [cats, items] = await Promise.all([
+        const [cats, items, tableData] = await Promise.all([
           fetch('/api/menu-categories').then(r => r.json()),
           fetch('/api/menu-items').then(r => r.json()),
+          fetch(`/api/tables/${tableId}`).then(r => r.json()),
         ])
         setCategories(cats)
         setMenuItems(items)
         if (cats.length > 0) setActiveCategory(cats[0].id)
+        if (tableData?.table_number) setTableNumber(tableData.table_number)
       } catch (e) {
         setLoadError(String(e))
       } finally {
@@ -51,7 +55,10 @@ export default function TablePage() {
       }
     }
     load()
-  }, [])
+    // Restore OTP from localStorage if session was already started
+    const saved = localStorage.getItem(`otp-${tableId}`)
+    if (saved) { setGeneratedOtp(saved); setShowOtpBadge(true) }
+  }, [tableId])
 
   async function fetchSessionOrders(sessionId: string) {
     const res = await fetch(`/api/orders?session_id=${sessionId}`)
@@ -79,6 +86,7 @@ export default function TablePage() {
   const cartTotal = cart.reduce((sum, c) => sum + c.menu_item.price * c.quantity, 0)
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0)
   const sessionTotal = sessionOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + o.total_amount, 0)
+  const canRequestBill = sessionOrders.some(o => !['pending', 'cancelled'].includes(o.status))
 
   async function handlePlaceOrderClick() {
     if (cart.length === 0) return
@@ -106,6 +114,7 @@ export default function TablePage() {
     const data = await res.json()
     setSession(data.session)
     setGeneratedOtp(data.otp)
+    localStorage.setItem(`otp-${tableId}`, data.otp)
     setDrawer('show-otp')
     setPlacing(false)
   }
@@ -129,6 +138,7 @@ export default function TablePage() {
     })
     if (res.ok) {
       setCart([])
+      setShowOtpBadge(true)
       await fetchSessionOrders(sessionData.id)
       setDrawer('orders')
     }
@@ -227,14 +237,23 @@ export default function TablePage() {
           <div>
             <p className="text-orange-100 text-sm font-medium">Welcome to</p>
             <h1 className="text-2xl font-bold mt-1">The QR Kitchen</h1>
-            <p className="text-orange-100 mt-1">Table {tableId.slice(-4)}</p>
+            <p className="text-orange-100 mt-1">Table {tableNumber || tableId.slice(-4)}</p>
           </div>
-          {session && (
-            <button onClick={openOrdersPage}
-              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors mt-1">
-              <Receipt className="w-4 h-4" /> My Orders
-            </button>
-          )}
+          <div className="flex flex-col items-end gap-2 mt-1">
+            {session && (
+              <button onClick={openOrdersPage}
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors">
+                <Receipt className="w-4 h-4" /> My Orders
+              </button>
+            )}
+            {showOtpBadge && generatedOtp && (
+              <button
+                onClick={() => setDrawer('show-otp')}
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors">
+                <KeyRound className="w-4 h-4" /> OTP: {generatedOtp}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -314,7 +333,7 @@ export default function TablePage() {
       {drawer !== 'none' && (
         <div className="fixed inset-0 z-30 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/50"
-            onClick={() => !['show-otp'].includes(drawer) && setDrawer('none')} />
+            onClick={() => (drawer !== 'show-otp' || session) && setDrawer('none')} />
 
           <div className="relative bg-white rounded-t-3xl max-h-[92vh] flex flex-col">
 
@@ -375,7 +394,7 @@ export default function TablePage() {
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input type="text"
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
                         placeholder="Enter your name" value={name} onChange={e => setName(e.target.value)} />
                     </div>
                   </div>
@@ -384,7 +403,7 @@ export default function TablePage() {
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input type="tel" maxLength={10}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
                         placeholder="Enter phone number" value={phone} onChange={e => setPhone(e.target.value)} />
                     </div>
                   </div>
@@ -398,9 +417,16 @@ export default function TablePage() {
             {/* SHOW OTP */}
             {drawer === 'show-otp' && (
               <>
-                <div className="p-5 border-b border-gray-100">
-                  <h2 className="text-xl font-bold text-gray-900">Your OTP</h2>
-                  <p className="text-gray-400 text-sm mt-1">Testing mode — in production sent via SMS</p>
+                <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Your OTP</h2>
+                    <p className="text-gray-400 text-sm mt-0.5">Share with others at your table</p>
+                  </div>
+                  {session && (
+                    <button onClick={() => setDrawer('none')} className="p-2 hover:bg-gray-100 rounded-xl">
+                      <X className="w-5 h-5 text-gray-600" />
+                    </button>
+                  )}
                 </div>
                 <div className="p-5 space-y-4 text-center">
                   <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-6">
@@ -524,11 +550,16 @@ export default function TablePage() {
                         <p className="text-green-600 text-xs">Staff will bring your bill shortly.</p>
                       </div>
                     </div>
-                  ) : (
+                  ) : canRequestBill ? (
                     <Button size="lg" variant="outline" className="w-full border-orange-300 text-orange-600 hover:bg-orange-50"
                       onClick={() => setShowBillConfirm(true)}>
                       <FileText className="w-5 h-5 mr-2" /> Ask for Bill
                     </Button>
+                  ) : (
+                    <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                      <Clock className="w-5 h-5 text-gray-400 shrink-0" />
+                      <p className="text-gray-500 text-sm">Bill available once your order is accepted by staff.</p>
+                    </div>
                   )}
                 </div>
               </>

@@ -12,6 +12,7 @@ interface Session {
   status: string
   customer_name?: string
   phone?: string
+  otp?: string
   started_at: string
   ended_at?: string
   bill_requested: boolean
@@ -115,6 +116,7 @@ export default function SessionsPage() {
                 <tr>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Table</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Customer</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">OTP</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Started</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Bill</th>
                   <th className="text-right text-xs font-semibold text-gray-500 uppercase px-5 py-3">Action</th>
@@ -127,6 +129,13 @@ export default function SessionsPage() {
                     <td className="px-5 py-4">
                       <p className="font-medium text-gray-900">{s.customer_name || '—'}</p>
                       {s.phone && <p className="text-xs text-gray-400">{s.phone}</p>}
+                    </td>
+                    <td className="px-5 py-4">
+                      {s.otp ? (
+                        <span className="inline-flex items-center gap-1 bg-orange-50 border border-orange-200 text-orange-700 font-bold tracking-widest text-sm px-2.5 py-1 rounded-lg">
+                          {s.otp}
+                        </span>
+                      ) : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-5 py-4 text-gray-500 text-xs">{formatDate(s.started_at)}</td>
                     <td className="px-5 py-4">

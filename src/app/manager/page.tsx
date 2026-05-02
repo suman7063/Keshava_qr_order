@@ -307,7 +307,7 @@ export default function ManagerPage() {
                         </div>
                       ))}
                       <div className="border-t border-gray-200 pt-2 mt-1 flex justify-between text-sm font-bold">
-                        <span>Total</span>
+                        <span className="text-gray-800">Total</span>
                         <span className="text-orange-600">{formatCurrency(order.total_amount)}</span>
                       </div>
                     </div>
