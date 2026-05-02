@@ -38,6 +38,8 @@ export default function ManagerPage() {
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [managerEmail, setManagerEmail] = useState('')
+  const [managerName, setManagerName] = useState('')
+  const [managerAvatar, setManagerAvatar] = useState('')
 
   async function fetchOrders() {
     const res = await fetch('/api/orders')
@@ -58,6 +60,8 @@ export default function ManagerPage() {
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.email) setManagerEmail(user.email)
+      if (user?.user_metadata?.name) setManagerName(user.user_metadata.name as string)
+      if (user?.user_metadata?.avatar_url) setManagerAvatar(user.user_metadata.avatar_url as string)
     })
 
     const channel = supabase
@@ -136,11 +140,18 @@ export default function ManagerPage() {
           {/* Top row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center shrink-0 text-white font-bold text-sm">
-                {managerEmail ? managerEmail[0].toUpperCase() : <BarChart3 className="w-4 h-4" />}
-              </div>
+              {managerAvatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={managerAvatar} alt={managerName || managerEmail} className="w-9 h-9 rounded-xl object-cover shrink-0" />
+              ) : (
+                <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center shrink-0 text-white font-bold text-sm">
+                  {(managerName || managerEmail)[0]?.toUpperCase() || <BarChart3 className="w-4 h-4" />}
+                </div>
+              )}
               <div>
-                <h1 className="text-base font-bold text-gray-900 leading-tight">Manager Dashboard</h1>
+                <h1 className="text-base font-bold text-gray-900 leading-tight">
+                  {managerName ? managerName : 'Manager Dashboard'}
+                </h1>
                 {managerEmail && (
                   <p className="text-purple-500 text-xs font-medium truncate max-w-[180px] sm:max-w-xs">
                     {managerEmail}
