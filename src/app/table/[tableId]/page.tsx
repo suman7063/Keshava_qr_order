@@ -460,8 +460,9 @@ export default function TablePage() {
                   <div className="flex items-start gap-3 bg-purple-50 rounded-xl p-4">
                     <KeyRound className="w-5 h-5 text-purple-500 shrink-0 mt-0.5" />
                     <p className="text-sm text-purple-700">
-                      Table already has an active order.{' '}
-                      <span className="font-semibold">Ask the first customer for their OTP.</span>
+                      Table already has an active order. Ask{' '}
+                      <span className="font-semibold">{session?.customer_name || 'the first customer'}</span>
+                      {' '}for their OTP.
                     </p>
                   </div>
                   <div>
@@ -517,6 +518,11 @@ export default function TablePage() {
                             <p className="text-xs text-gray-400">{formatDate(order.created_at)}</p>
                           </div>
                         </div>
+                        {order.status === 'pending' && (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 text-orange-600">
+                            Pending
+                          </span>
+                        )}
                         {order.status === 'confirmed' && (
                           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
                             Confirmed ✓
@@ -543,11 +549,6 @@ export default function TablePage() {
                       </div>
                     </div>
                   ))}
-                </div>
-
-                {/* Cancel note */}
-                <div className="px-5 pt-3 pb-1">
-                  <p className="text-xs text-gray-400 text-center">To cancel an order, please speak to our staff.</p>
                 </div>
 
                 {/* Grand Total + Bill Button */}
