@@ -86,6 +86,16 @@ export default function ManagerPage() {
     router.refresh()
   }
 
+  async function closeSession(sessionId: string) {
+    await fetch('/api/sessions/close', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    })
+    fetchBillRequests()
+    fetchOrders()
+  }
+
   const pendingOrders = orders.filter(o => o.status === 'pending')
   const today = new Date().toDateString()
   const todayOrders = orders.filter(o => new Date(o.created_at).toDateString() === today)
@@ -388,10 +398,21 @@ export default function ManagerPage() {
                     <p className="text-xs text-gray-400">
                       Requested at {new Date(s.started_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                    <div className="mt-4 pt-3 border-t border-gray-100">
+                    <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
                       <p className="text-xs text-orange-500 font-medium">
                         Customer has requested the bill — please attend to Table {s.table?.table_number}
                       </p>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        className="w-full"
+                        onClick={() => {
+                          if (confirm(`Close session for Table ${s.table?.table_number}? Table will become available.`))
+                            closeSession(s.id)
+                        }}
+                      >
+                        ✓ Bill Paid — Close Session
+                      </Button>
                     </div>
                   </div>
                 ))}
