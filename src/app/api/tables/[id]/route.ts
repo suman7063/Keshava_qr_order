@@ -26,6 +26,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // If table marked available, close any active session
+  if (body.status === 'available') {
+    await supabase
+      .from('table_sessions')
+      .update({ status: 'closed', ended_at: new Date().toISOString() })
+      .eq('table_id', id)
+      .eq('status', 'active')
+  }
+
   return NextResponse.json(data)
 }
 

@@ -25,6 +25,13 @@ export async function POST(request: Request) {
       .from('restaurant_tables')
       .update({ status: 'available' })
       .eq('id', session.table_id)
+
+    // Mark all non-cancelled orders as served
+    await supabase
+      .from('orders')
+      .update({ status: 'served' })
+      .eq('session_id', session_id)
+      .neq('status', 'cancelled')
   }
 
   return NextResponse.json({ success: true })

@@ -510,7 +510,13 @@ export default function ManagerPage() {
                           </Button>
                         )}
                         {order.status === 'confirmed' && (
-                          <span className="text-xs text-green-600 font-medium">✓ Accepted</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-green-600 font-medium">✓ Accepted</span>
+                            <button onClick={() => { if (confirm('Cancel this confirmed order?')) updateStatus(order.id, 'cancelled') }}
+                              className="text-xs font-semibold text-red-500 border border-red-300 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap">
+                              Cancel
+                            </button>
+                          </div>
                         )}
                         {order.status === 'cancelled' && (
                           <span className="text-xs text-gray-400">Cancelled</span>
