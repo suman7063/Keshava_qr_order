@@ -281,7 +281,7 @@ export default function TablePage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center px-6">
-          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-10 h-10 border-4 border-[#1e3a5f] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-400 text-sm">Loading menu...</p>
         </div>
       </div>
@@ -295,7 +295,7 @@ export default function TablePage() {
           <p className="text-red-500 font-semibold mb-2">Failed to load menu</p>
           <p className="text-gray-400 text-xs break-all">{loadError}</p>
           <button onClick={() => window.location.reload()}
-            className="mt-4 bg-orange-500 text-white px-6 py-2 rounded-xl text-sm font-medium">
+            className="mt-4 bg-[#1e3a5f] text-white px-6 py-2 rounded-xl text-sm font-medium">
             Retry
           </button>
         </div>
@@ -306,7 +306,7 @@ export default function TablePage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
-      <div className="bg-[#1e3a5f] px-4 pt-8 pb-4">
+      <div className="bg-[#1e3a5f] px-4 py-3">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-xl font-black text-white tracking-widest uppercase">The QR Kitchen</h1>
@@ -435,14 +435,14 @@ export default function TablePage() {
                     <div key={c.menu_item.id} className="flex items-center gap-3">
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">{c.menu_item.name}</p>
-                        <p className="text-sm text-orange-600 font-medium">{formatCurrency(c.menu_item.price)} each</p>
+                        <p className="text-sm text-red-500 font-medium">{formatCurrency(c.menu_item.price)} each</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => removeFromCart(c.menu_item.id)} className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
                           <Minus className="w-4 h-4 text-gray-800" />
                         </button>
                         <span className="w-6 text-center font-bold text-gray-900">{c.quantity}</span>
-                        <button onClick={() => addToCart(c.menu_item)} className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center">
+                        <button onClick={() => addToCart(c.menu_item)} className="w-8 h-8 bg-[#1e3a5f] text-white rounded-full flex items-center justify-center">
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
@@ -455,7 +455,7 @@ export default function TablePage() {
                     <span className="text-gray-600 font-medium">Total</span>
                     <span className="text-2xl font-bold text-gray-900">{formatCurrency(cartTotal)}</span>
                   </div>
-                  <Button size="lg" className="w-full" onClick={handlePlaceOrderClick}>
+                  <Button size="lg" className="w-full bg-[#1e3a5f] hover:bg-[#16304d]" onClick={handlePlaceOrderClick}>
                     <ShoppingCart className="w-5 h-5 mr-2" /> Place Order
                   </Button>
                 </div>
@@ -478,7 +478,7 @@ export default function TablePage() {
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input type="text"
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] placeholder:text-gray-400"
                         placeholder="Enter your name" value={name} onChange={e => setName(e.target.value)} />
                     </div>
                   </div>
@@ -487,11 +487,11 @@ export default function TablePage() {
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input type="tel" maxLength={10}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] placeholder:text-gray-400"
                         placeholder="Enter phone number" value={phone} onChange={e => setPhone(e.target.value)} />
                     </div>
                   </div>
-                  <Button size="lg" className="w-full" loading={placing} onClick={handleCreateSession}>
+                  <Button size="lg" className="w-full bg-[#1e3a5f] hover:bg-[#16304d]" loading={placing} onClick={handleCreateSession}>
                     Get OTP
                   </Button>
                 </div>
@@ -513,12 +513,12 @@ export default function TablePage() {
                   )}
                 </div>
                 <div className="p-5 space-y-4 text-center">
-                  <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-6">
-                    <p className="text-xs text-orange-400 font-medium mb-2">OTP Code</p>
-                    <p className="text-5xl font-bold tracking-widest text-orange-600">{generatedOtp}</p>
-                    <p className="text-xs text-orange-400 mt-3">Share this with others at your table</p>
+                  <div className="bg-[#1e3a5f]/5 border-2 border-[#1e3a5f]/20 rounded-2xl p-6">
+                    <p className="text-xs text-[#1e3a5f]/50 font-medium mb-2">OTP Code</p>
+                    <p className="text-5xl font-bold tracking-widest text-[#1e3a5f]">{generatedOtp}</p>
+                    <p className="text-xs text-[#1e3a5f]/50 mt-3">Share this with others at your table</p>
                   </div>
-                  <Button size="lg" className="w-full" loading={placing}
+                  <Button size="lg" className="w-full bg-[#1e3a5f] hover:bg-[#16304d]" loading={placing}
                     onClick={() => session && placeOrder(session, currentCustomerName)}>
                     Confirm & Place Order
                   </Button>
@@ -549,17 +549,17 @@ export default function TablePage() {
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input type="text"
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:text-gray-400"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] placeholder:text-gray-400"
                         placeholder="Enter your name"
                         value={guestName} onChange={e => setGuestName(e.target.value)} />
                     </div>
                   </div>
                   <input type="number"
-                    className="w-full text-center text-4xl font-bold tracking-widest py-4 border-2 border-gray-200 rounded-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:text-gray-300"
+                    className="w-full text-center text-4xl font-bold tracking-widest py-4 border-2 border-gray-200 rounded-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] placeholder:text-gray-300"
                     placeholder="------" maxLength={6}
                     value={otpInput} onChange={e => setOtpInput(e.target.value.slice(0, 6))} />
                   {otpError && <p className="text-red-500 text-sm text-center">{otpError}</p>}
-                  <Button size="lg" className="w-full bg-purple-600 hover:bg-purple-700" loading={placing} onClick={handleVerifyOtp}>
+                  <Button size="lg" className="w-full bg-[#1e3a5f] hover:bg-[#16304d]" loading={placing} onClick={handleVerifyOtp}>
                     Verify & Place Order
                   </Button>
                 </div>
@@ -587,7 +587,7 @@ export default function TablePage() {
                       {/* Order header */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-xs">
+                          <div className="w-7 h-7 bg-[#1e3a5f]/10 rounded-full flex items-center justify-center text-[#1e3a5f] font-bold text-xs">
                             {order.customer_name?.[0]?.toUpperCase() || (i + 1)}
                           </div>
                           <div>
@@ -598,7 +598,7 @@ export default function TablePage() {
                           </div>
                         </div>
                         {order.status === 'pending' && (
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 text-orange-600">
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
                             Pending Approval
                           </span>
                         )}
@@ -614,7 +614,7 @@ export default function TablePage() {
                         {order.items?.map(item => (
                           <div key={item.id} className="flex justify-between text-sm">
                             <span className="text-gray-700">
-                              {item.menu_item?.name}{item.quantity > 1 && <span className="font-semibold text-orange-500"> ×{item.quantity}</span>}
+                              {item.menu_item?.name}{item.quantity > 1 && <span className="font-semibold text-[#1e3a5f]"> ×{item.quantity}</span>}
                             </span>
                             <span className="text-gray-600 font-medium">{formatCurrency(item.total_price)}</span>
                           </div>
@@ -624,7 +624,7 @@ export default function TablePage() {
                       {/* Order total */}
                       <div className="border-t border-gray-200 mt-3 pt-2 flex justify-between text-sm font-bold">
                         <span className="text-gray-700">Order Total</span>
-                        <span className="text-orange-600">{formatCurrency(order.total_amount)}</span>
+                        <span className="text-red-500">{formatCurrency(order.total_amount)}</span>
                       </div>
                     </div>
                   ))}
@@ -634,7 +634,7 @@ export default function TablePage() {
                 <div className="p-5 border-t border-gray-100 bg-white">
                   <div className="flex justify-between items-center mb-4">
                     <span className="font-bold text-gray-900 text-lg">Grand Total</span>
-                    <span className="text-2xl font-bold text-orange-600">{formatCurrency(sessionTotal)}</span>
+                    <span className="text-2xl font-bold text-[#1e3a5f]">{formatCurrency(sessionTotal)}</span>
                   </div>
 
                   {billRequested ? (
@@ -646,7 +646,7 @@ export default function TablePage() {
                       </div>
                     </div>
                   ) : canRequestBill ? (
-                    <Button size="lg" variant="outline" className="w-full border-orange-300 text-orange-600 hover:bg-orange-50"
+                    <Button size="lg" variant="outline" className="w-full border-[#1e3a5f]/30 text-[#1e3a5f] hover:bg-[#1e3a5f]/5"
                       onClick={() => setShowBillConfirm(true)}>
                       <FileText className="w-5 h-5 mr-2" /> Ask for Bill
                     </Button>
@@ -668,8 +668,8 @@ export default function TablePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowBillConfirm(false)} />
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-xs p-6 text-center">
-            <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-7 h-7 text-orange-500" />
+            <div className="w-14 h-14 bg-[#1e3a5f]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-7 h-7 text-[#1e3a5f]" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">Request Bill?</h3>
             <p className="text-gray-400 text-sm mb-6">
