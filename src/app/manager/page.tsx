@@ -361,28 +361,28 @@ export default function ManagerPage() {
                 <p className="text-green-500 text-sm mt-1">No pending orders right now</p>
               </div>
             ) : (
-              <div className="flex gap-4 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-2 -mx-4 px-4">
+              <div className="space-y-3">
                 {pendingOrders.map(order => {
                   const removedList = removedItems[order.id] || []
                   const total = order.items?.filter(i => !removedList.includes(i.id)).reduce((s, i) => s + i.total_price, 0) ?? order.total_amount
                   return (
-                    <div key={order.id} className="snap-start shrink-0 w-[85vw] max-w-sm bg-white rounded-3xl border border-gray-100 shadow-md flex flex-col">
-                      {/* Card header */}
-                      <div className="bg-linear-to-r from-orange-500 to-red-500 rounded-t-3xl px-4 py-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-white font-bold text-lg leading-tight">Table {order.table?.table_number}</p>
-                          <p className="text-orange-100 text-xs flex items-center gap-1 mt-0.5">
-                            <Clock className="w-3 h-3" /> {getElapsed(order.created_at)} min ago
-                          </p>
+                    <div key={order.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                      {/* Header */}
+                      <div className="bg-linear-to-r from-orange-500 to-red-500 px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-bold">Table {order.table?.table_number}</p>
+                          <span className="text-orange-100 text-xs flex items-center gap-0.5">
+                            <Clock className="w-3 h-3" /> {getElapsed(order.created_at)}m
+                          </span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-white font-bold text-lg">{formatCurrency(total)}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-bold">{formatCurrency(total)}</p>
                           <span className="bg-white/25 text-white text-xs font-bold px-2 py-0.5 rounded-full">NEW</span>
                         </div>
                       </div>
 
                       {/* Items */}
-                      <div className="flex-1 px-4 py-3 space-y-2">
+                      <div className="px-4 py-3 space-y-2">
                         {order.items?.map(item => {
                           const removed = removedList.includes(item.id)
                           return (
@@ -401,11 +401,11 @@ export default function ManagerPage() {
                       </div>
 
                       {order.notes && (
-                        <p className="text-xs text-yellow-700 bg-yellow-50 mx-4 rounded-xl px-3 py-2 mb-2">📝 {order.notes}</p>
+                        <p className="text-xs text-yellow-700 bg-yellow-50 mx-4 rounded-xl px-3 py-2 mb-3">📝 {order.notes}</p>
                       )}
 
                       {/* Actions */}
-                      <div className="px-4 pb-4 flex gap-2 mt-1">
+                      <div className="px-4 pb-4 flex gap-2">
                         <Button size="sm" className="flex-1" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
                           <CheckCircle className="w-4 h-4 mr-1" /> Accept & Print
                         </Button>
