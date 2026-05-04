@@ -450,13 +450,13 @@ export default function ManagerPage() {
                         </div>
                       ) : (
                         <div className="px-4 pb-4 pt-1 flex items-center justify-between">
-                          <Button size="sm" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
-                            <CheckCircle className="w-4 h-4 mr-1.5" /> Accept & Print
-                          </Button>
                           <button onClick={() => setRejectConfirm(order.id)}
                             className="text-sm font-semibold text-red-500 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
                             Reject Order
                           </button>
+                          <Button size="sm" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
+                            <CheckCircle className="w-4 h-4 mr-1.5" /> Accept & Print
+                          </Button>
                         </div>
                       )}
                     </div>
