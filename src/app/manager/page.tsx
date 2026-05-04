@@ -361,56 +361,51 @@ export default function ManagerPage() {
                 <p className="text-green-500 text-sm mt-1">No pending orders right now</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div className="flex gap-4 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-2 -mx-4 px-4">
                 {pendingOrders.map(order => {
-                  const activeItems = order.items?.filter(i => !(removedItems[order.id] || []).includes(i.id)) || []
                   const removedList = removedItems[order.id] || []
-                  const total = activeItems.reduce((s, i) => s + i.total_price, 0)
+                  const total = order.items?.filter(i => !removedList.includes(i.id)).reduce((s, i) => s + i.total_price, 0) ?? order.total_amount
                   return (
-                    <div key={order.id} className="bg-white rounded-2xl border-2 border-red-100 shadow-sm p-4">
-                      {/* Header row */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-bold text-gray-900">Table {order.table?.table_number}</span>
-                          <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                            <Clock className="w-3 h-3" />{getElapsed(order.created_at)}m
-                          </span>
+                    <div key={order.id} className="snap-start shrink-0 w-[85vw] max-w-sm bg-white rounded-3xl border border-gray-100 shadow-md flex flex-col">
+                      {/* Card header */}
+                      <div className="bg-linear-to-r from-orange-500 to-red-500 rounded-t-3xl px-4 py-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-white font-bold text-lg leading-tight">Table {order.table?.table_number}</p>
+                          <p className="text-orange-100 text-xs flex items-center gap-1 mt-0.5">
+                            <Clock className="w-3 h-3" /> {getElapsed(order.created_at)} min ago
+                          </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-bold text-orange-600">{formatCurrency(total)}</span>
-                          <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-full">NEW</span>
+                        <div className="text-right">
+                          <p className="text-white font-bold text-lg">{formatCurrency(total)}</p>
+                          <span className="bg-white/25 text-white text-xs font-bold px-2 py-0.5 rounded-full">NEW</span>
                         </div>
                       </div>
 
-                      {/* Items as chips — horizontal scroll */}
-                      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 mb-3">
+                      {/* Items */}
+                      <div className="flex-1 px-4 py-3 space-y-2">
                         {order.items?.map(item => {
                           const removed = removedList.includes(item.id)
                           return (
-                            <button key={item.id}
-                              onClick={() => toggleRemoveItem(order.id, item.id, item.menu_item?.name || 'item')}
-                              className={`flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
-                                removed
-                                  ? 'border-gray-200 bg-gray-50 text-gray-300 line-through'
-                                  : 'border-orange-200 bg-orange-50 text-orange-800'
-                              }`}>
-                              {item.menu_item?.name}
-                              {item.quantity > 1 && <span className="font-bold">×{item.quantity}</span>}
-                              <span className={removed ? 'text-gray-300' : 'text-orange-500'}>{formatCurrency(item.total_price)}</span>
-                              <span className={`ml-0.5 font-bold ${removed ? 'text-gray-300' : 'text-red-400'}`}>{removed ? '↩' : '×'}</span>
-                            </button>
+                            <div key={item.id} className={`flex items-center gap-2 text-sm ${removed ? 'opacity-40' : ''}`}>
+                              <button onClick={() => toggleRemoveItem(order.id, item.id, item.menu_item?.name || 'item')}
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${removed ? 'bg-gray-200 text-gray-400' : 'bg-red-100 text-red-500'}`}>
+                                {removed ? '↩' : '×'}
+                              </button>
+                              <span className={`flex-1 ${removed ? 'line-through text-gray-400' : 'text-gray-800 font-medium'}`}>
+                                {item.menu_item?.name}{item.quantity > 1 && <span className="text-orange-500 font-bold"> ×{item.quantity}</span>}
+                              </span>
+                              <span className={`font-semibold ${removed ? 'text-gray-300' : 'text-gray-600'}`}>{formatCurrency(item.total_price)}</span>
+                            </div>
                           )
                         })}
                       </div>
 
                       {order.notes && (
-                        <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-1.5 mb-3">
-                          📝 {order.notes}
-                        </p>
+                        <p className="text-xs text-yellow-700 bg-yellow-50 mx-4 rounded-xl px-3 py-2 mb-2">📝 {order.notes}</p>
                       )}
 
                       {/* Actions */}
-                      <div className="flex gap-2">
+                      <div className="px-4 pb-4 flex gap-2 mt-1">
                         <Button size="sm" className="flex-1" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
                           <CheckCircle className="w-4 h-4 mr-1" /> Accept & Print
                         </Button>
@@ -462,11 +457,17 @@ export default function ManagerPage() {
                       <td className="py-3 px-4 font-bold text-orange-600 whitespace-nowrap">{formatCurrency(order.total_amount)}</td>
                       <td className="py-3 px-4 whitespace-nowrap"><Badge variant={STATUS_VARIANT[order.status]} className="capitalize text-xs">{order.status}</Badge></td>
                       <td className="py-3 px-4 text-gray-400 text-xs whitespace-nowrap">{formatDate(order.created_at)}</td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         {order.status === 'pending' && (
-                          <Button size="sm" loading={updatingId === order.id} onClick={() => acceptOrder(order)} className="whitespace-nowrap">
+                          <Button size="sm" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
                             Accept
                           </Button>
+                        )}
+                        {order.status === 'confirmed' && (
+                          <span className="text-xs text-green-600 font-medium">✓ Accepted</span>
+                        )}
+                        {order.status === 'cancelled' && (
+                          <span className="text-xs text-gray-400">Cancelled</span>
                         )}
                       </td>
                     </tr>
