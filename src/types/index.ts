@@ -2,12 +2,22 @@ export type TableStatus = 'available' | 'occupied' | 'reserved'
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'cancelled'
 export type SessionStatus = 'active' | 'closed'
 
+export type QRTemplate = 'classic' | 'minimal' | 'template3' | 'template4'
+
 export interface RestaurantTable {
   id: string
   table_number: string
   capacity: number
   status: TableStatus
   qr_code_url?: string
+  card_image?: string
+  card_template?: QRTemplate
+  card_bg_color?: string
+  card_bg_image?: string
+  card_text_color?: string
+  card_heading?: string
+  card_subtext?: string
+  card_label?: string
   created_at: string
 }
 

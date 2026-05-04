@@ -669,8 +669,7 @@ export default function TablePage() {
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowBillConfirm(false)} />
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-xs p-6 text-center">
             <div className="w-14 h-14 bg-[#1e3a5f]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-7 h-7 text-[#1e3a5f]" />
-            </div>
+              <FileText className="w-7 h-7 text-[#1e3a5f]" />            </div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">Request Bill?</h3>
             <p className="text-gray-400 text-sm mb-6">
               Are you sure you want to request the bill?{' '}

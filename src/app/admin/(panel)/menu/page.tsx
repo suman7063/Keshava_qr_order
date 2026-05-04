@@ -91,16 +91,16 @@ export default function MenuPage() {
           <h1 className="text-2xl font-bold text-gray-900">Menu</h1>
           <p className="text-gray-500 text-sm mt-0.5">Manage menu items and categories</p>
         </div>
-        <Button onClick={openAdd}>
-          <Plus className="w-4 h-4 mr-2" /> Add Item
+        <Button onClick={openAdd} className="whitespace-nowrap shrink-0">
+          <Plus className="w-4 h-4 mr-2 shrink-0" /> Add Item
         </Button>
       </div>
 
       {/* Category Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-gray-200 pb-4">
+      <div className="flex gap-2 mb-6 border-b border-gray-200 pb-4 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveCategory(null)}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${!activeCategory ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+          className={`whitespace-nowrap shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${!activeCategory ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
         >
           All ({items.length})
         </button>
@@ -108,7 +108,7 @@ export default function MenuPage() {
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.id)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeCategory === cat.id ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+            className={`whitespace-nowrap shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeCategory === cat.id ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
           >
             {cat.name} ({items.filter(i => i.category_id === cat.id).length})
           </button>
@@ -117,40 +117,41 @@ export default function MenuPage() {
 
       {/* Items Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
-              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-3">Item</th>
-              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-3">Category</th>
-              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-3">Price</th>
-              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-3">Status</th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase px-6 py-3">Actions</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 whitespace-nowrap">Item</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 whitespace-nowrap">Category</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 whitespace-nowrap">Price</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 whitespace-nowrap">Status</th>
+              <th className="text-right text-xs font-semibold text-gray-500 uppercase px-4 py-3 whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filteredItems.map(item => (
               <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="px-6 py-4">
+                <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-gray-900">{item.name}</p>
-                    {item.is_vegetarian && <Leaf className="w-3.5 h-3.5 text-green-500" />}
+                    <p className="font-medium text-gray-900 whitespace-nowrap">{item.name}</p>
+                    {item.is_vegetarian && <Leaf className="w-3.5 h-3.5 text-green-500 shrink-0" />}
                   </div>
-                  {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>}
+                  {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1 max-w-[140px]">{item.description}</p>}
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3 whitespace-nowrap">
                   <span className="text-sm text-gray-600">{item.category?.name}</span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3 whitespace-nowrap">
                   <span className="font-semibold text-orange-600">{formatCurrency(item.price)}</span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3 whitespace-nowrap">
                   <button onClick={() => toggleAvailable(item)}>
                     <Badge variant={item.is_available ? 'success' : 'secondary'}>
                       {item.is_available ? 'Available' : 'Unavailable'}
                     </Badge>
                   </button>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
                       <Pencil className="w-4 h-4" />
@@ -164,6 +165,7 @@ export default function MenuPage() {
             ))}
           </tbody>
         </table>
+        </div>
         {filteredItems.length === 0 && (
           <div className="text-center py-12 text-gray-400">No items in this category</div>
         )}

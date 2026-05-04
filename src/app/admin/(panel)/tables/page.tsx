@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { RestaurantTable, TableStatus } from '@/types'
+import { RestaurantTable, TableStatus, QRTemplate } from '@/types'
+import { TEMPLATES, getCardHTML } from '@/lib/qr-templates'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
-import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList, Copy, Check } from 'lucide-react'
+import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList, Copy, Check, Palette, Type, ImageIcon } from 'lucide-react'
 import QRCode from 'qrcode'
 import { formatCurrency } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ const STATUS_LABEL: Record<TableStatus, string> = {
 
 const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
 
+
 export default function TablesPage() {
   const [tables, setTables] = useState<RestaurantTable[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,6 +44,44 @@ export default function TablesPage() {
   const [detailTable, setDetailTable] = useState<RestaurantTable | null>(null)
   const [detailOrders, setDetailOrders] = useState<TableOrder[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
+  const DEFAULT_CARD_IMAGE = 'https://images.unsplash.com/photo-1544025162-d76538d31203?w=400&q=80&auto=format&fit=crop'
+  const [cardImage, setCardImage] = useState(DEFAULT_CARD_IMAGE)
+  const [cardTemplate, setCardTemplate] = useState<QRTemplate>('classic')
+  const [cardBgColor, setCardBgColor] = useState('')
+  const [cardBgImage, setCardBgImage] = useState('')
+  const [cardTextColor, setCardTextColor] = useState('')
+  const [cardHeading, setCardHeading] = useState('')
+  const [cardSubtext, setCardSubtext] = useState('')
+  const [cardLabel, setCardLabel] = useState('')
+  const [editingField, setEditingField] = useState<'heading' | 'subtext' | 'label' | null>(null)
+  const [savingCard, setSavingCard] = useState(false)
+
+  const DEFAULT_TEXTS: Record<QRTemplate, { heading: string; subtext: string; label: string }> = {
+    classic:   { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
+    minimal:   { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
+    template3: { heading: 'SCAN HERE', subtext: 'To see our menu',  label: ''               },
+    template4: { heading: 'MENU',      subtext: 'Scan to view our', label: ''               },
+  }
+
+  function handleCardImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => setCardImage(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  async function saveCardSettings() {
+    if (!qrModal) return
+    setSavingCard(true)
+    await fetch(`/api/tables/${qrModal.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card_image: cardImage, card_template: cardTemplate, card_bg_color: cardBgColor || null, card_bg_image: cardBgImage || null, card_text_color: cardTextColor || null, card_heading: cardHeading || null, card_subtext: cardSubtext || null, card_label: cardLabel || null }),
+    })
+    fetchTables()
+    setSavingCard(false)
+  }
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   function copyUrl(tableId: string) {
@@ -107,16 +147,29 @@ export default function TablesPage() {
 
   async function showQR(table: RestaurantTable) {
     setQrModal(table)
+    setCardImage(table.card_image || DEFAULT_CARD_IMAGE)
+    setCardTemplate((table.card_template as QRTemplate) || 'classic')
+    setCardBgColor(table.card_bg_color || '')
+    setCardBgImage(table.card_bg_image || '')
+    setCardTextColor(table.card_text_color || '')
+    setCardHeading(table.card_heading || '')
+    setCardSubtext(table.card_subtext || '')
+    setCardLabel(table.card_label || '')
+    setEditingField(null)
     const url = `${BASE_URL}/table/${table.id}`
     const dataUrl = await QRCode.toDataURL(url, { width: 300, margin: 2, color: { dark: '#1f2937', light: '#ffffff' } })
     setQrDataUrl(dataUrl)
   }
 
   function downloadQR(table: RestaurantTable) {
-    const link = document.createElement('a')
-    link.download = `table-${table.table_number}-qr.png`
-    link.href = qrDataUrl
-    link.click()
+    const def = DEFAULT_TEXTS[cardTemplate]
+    const html = getCardHTML(cardTemplate, table.table_number, cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || def.heading, cardSubtext || def.subtext, cardLabel || def.label)
+    const win = window.open('', '_blank', 'width=400,height=640')
+    if (!win) return
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    setTimeout(() => { win.print() }, 300)
   }
 
   function openEdit(table: RestaurantTable) {
@@ -237,12 +290,160 @@ export default function TablesPage() {
       </Modal>
 
       {/* QR Code Modal */}
-      <Modal isOpen={!!qrModal} onClose={() => setQrModal(null)} title={`QR Code — Table ${qrModal?.table_number}`}>
-        <div className="text-center">
-          {qrDataUrl && <img src={qrDataUrl} alt="QR Code" className="mx-auto rounded-xl border border-gray-100 shadow" />}
-          <Button className="mt-4 w-full" onClick={() => qrModal && downloadQR(qrModal)}>
-            <Download className="w-4 h-4 mr-2" /> Download QR Code
-          </Button>
+      <Modal
+        isOpen={!!qrModal}
+        onClose={() => setQrModal(null)}
+        title={`QR Code — Table ${qrModal?.table_number}`}
+        size="lg"
+        headerExtra={
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5" title="Card Background">
+              <Palette className="w-5 h-5 text-gray-400" />
+              <input type="color"
+                value={cardBgColor || (TEMPLATES.find(x => x.id === cardTemplate)?.cardBg ?? '#ffffff')}
+                onChange={e => { setCardBgColor(e.target.value); setCardBgImage('') }}
+                className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
+              <label className={`cursor-pointer p-1 rounded border transition-colors ${cardBgImage ? 'border-orange-400 text-orange-500' : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-400'}`} title="Use image as background">
+                <ImageIcon className="w-4 h-4" />
+                <input type="file" accept="image/*" className="hidden" onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const reader = new FileReader()
+                  reader.onload = ev => { setCardBgImage(ev.target?.result as string); setCardBgColor('') }
+                  reader.readAsDataURL(file)
+                }} />
+              </label>
+              <button onClick={() => { setCardBgColor(''); setCardBgImage('') }} className="text-xs text-gray-400 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300">Reset</button>
+            </div>
+            <div className="flex items-center gap-1.5" title="Text Color">
+              <Type className="w-5 h-5 text-gray-400" />
+              <input type="color"
+                value={cardTextColor || (TEMPLATES.find(x => x.id === cardTemplate)?.accent ?? '#111111')}
+                onChange={e => setCardTextColor(e.target.value)}
+                className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
+              <button onClick={() => setCardTextColor('')} className="text-xs text-gray-400 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300">Reset</button>
+            </div>
+          </div>
+        }
+      >
+        <div className="flex gap-5" style={{ height: 580 }}>
+
+          {/* Left: Template selector */}
+          <div className="shrink-0">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Template</p>
+            <div className="grid grid-cols-2 gap-2">
+              {TEMPLATES.map(t => (
+                <button key={t.id} onClick={() => setCardTemplate(t.id)}
+                  className={`w-24 rounded-xl border-2 py-4 flex flex-col items-center gap-2 transition-all cursor-pointer ${cardTemplate === t.id ? 'border-orange-400 shadow-sm' : 'border-gray-100 hover:border-gray-300'}`}
+                  style={{ background: t.cardBg }}>
+                  <div className="w-5 h-5 rounded-full border-2" style={{ borderColor: t.accent, background: t.accent + '33' }} />
+                  <span className="text-[10px] font-semibold text-center leading-tight" style={{ color: t.accent }}>{t.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: QR card + actions */}
+          <div className="flex-1 flex flex-col items-center gap-3 overflow-y-auto">
+            {(() => {
+              const t = TEMPLATES.find(x => x.id === cardTemplate) || TEMPLATES[0]
+              const activeBg = cardBgColor || t.cardBg
+              const activeBgStyle = cardBgImage
+                ? { backgroundImage: `url(${cardBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                : { background: activeBg }
+              const activeText = cardTextColor || t.accent
+              const def = DEFAULT_TEXTS[cardTemplate]
+              const activeHeading = cardHeading || def.heading
+              const activeSubtext = cardSubtext || def.subtext
+              const activeLabel  = cardLabel  || def.label
+
+              const editable = (field: 'heading' | 'subtext' | 'label', className?: string, style?: React.CSSProperties) => {
+                const rawValue     = field === 'heading' ? cardHeading : field === 'subtext' ? cardSubtext : cardLabel
+                const displayValue = field === 'heading' ? activeHeading : field === 'subtext' ? activeSubtext : activeLabel
+                const setter       = field === 'heading' ? setCardHeading : field === 'subtext' ? setCardSubtext : setCardLabel
+                if (editingField === field) return (
+                  <input autoFocus value={rawValue}
+                    onChange={e => setter(e.target.value)}
+                    onBlur={() => setEditingField(null)}
+                    onKeyDown={e => e.key === 'Enter' && setEditingField(null)}
+                    className="bg-transparent border-b-2 border-dashed outline-none text-center w-full"
+                    style={style} />
+                )
+                return <span onClick={() => setEditingField(field)} className={`cursor-text border-b border-dashed border-transparent hover:border-current ${className ?? ''}`} style={style} title="Click to edit">{displayValue}</span>
+              }
+
+              if (cardTemplate === 'template3') return (
+                <div className="w-full max-w-[500px] mx-auto rounded-xl overflow-hidden shadow-xl" style={{ ...activeBgStyle, minHeight: 420 }}>
+                  <div className="py-2.5 px-5 text-center text-white text-xs font-extrabold tracking-[3px] uppercase" style={{ background: activeText }}>
+                    Table {qrModal?.table_number}
+                  </div>
+                  <div className="px-7 pt-6 pb-8 text-center flex flex-col items-center">
+                    {editable('subtext', 'text-sm font-bold tracking-[2px] uppercase mb-1 block', { color: activeText })}
+                    {editable('heading', 'font-black leading-none uppercase tracking-wide block', { fontSize: 52, fontFamily: 'Impact, Arial Black, sans-serif', color: activeText })}
+                    <div className="mt-5 p-2.5 bg-white rounded" style={{ border: `5px solid ${activeText}` }}>
+                      {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-40 h-40" />}  {/* eslint-disable-line @next/next/no-img-element */}
+                    </div>
+                  </div>
+                </div>
+              )
+
+              if (cardTemplate === 'template4') return (
+                <div className="w-full max-w-[500px] mx-auto rounded-xl overflow-hidden shadow-xl flex flex-col items-center px-7 py-6 text-center" style={{ ...activeBgStyle, minHeight: 420 }}>
+                  <div className="text-3xl leading-none mb-1" style={{ color: activeText }}>❧</div>
+                  <hr className="w-full border-t-2 mb-4" style={{ borderColor: activeText }} />
+                  <div className="bg-white p-3 rounded mb-4">
+                    {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-40 h-40" />}  {/* eslint-disable-line @next/next/no-img-element */}
+                  </div>
+                  {editable('subtext', 'text-sm italic leading-tight block', { color: activeText })}
+                  {editable('heading', 'text-4xl font-black tracking-widest leading-tight block', { fontFamily: 'Georgia, serif', color: activeText })}
+                  <hr className="w-full border-t-2 mt-4 mb-2" style={{ borderColor: activeText }} />
+                  <p className="text-[10px] uppercase tracking-widest opacity-70" style={{ color: activeText }}>Table {qrModal?.table_number}</p>
+                </div>
+              )
+
+              const showImg = cardTemplate !== 'minimal'
+              return (
+                <div className="w-full max-w-[500px] mx-auto rounded-2xl overflow-hidden shadow-xl border border-gray-100" style={{ minHeight: 420 }}>
+                  {showImg && (
+                    <div className="h-44 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={cardImage} alt="food" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className={`px-6 pb-5 text-center flex flex-col items-center justify-center ${showImg ? 'pt-6' : 'pt-0 h-[420px]'}`} style={activeBgStyle}>
+                    {qrDataUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={qrDataUrl} alt="QR" className="w-44 h-44 mx-auto mb-4" />
+                    )}
+                    <div className="flex items-center justify-center gap-3 mb-1">
+                      <span className="text-xl font-black italic" style={{ color: activeText }}>Table {qrModal?.table_number}</span>
+                      <span className="text-2xl font-light" style={{ color: activeText }}>|</span>
+                      <div className="text-left">
+                        {editable('label', 'text-[9px] tracking-[3px] uppercase leading-none font-semibold opacity-80 block', { color: activeText })}
+                        {editable('heading', 'text-2xl font-black uppercase leading-tight block', { color: activeText })}
+                      </div>
+                    </div>
+                    {editable('subtext', 'text-xs tracking-[2px] mt-1 font-medium opacity-80 block', { color: activeText })}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {cardTemplate !== 'minimal' && cardTemplate !== 'template4' && (
+              <label className="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-xl py-2 text-sm text-gray-500 hover:border-orange-400 hover:text-orange-500 cursor-pointer transition-colors">
+                <Plus className="w-4 h-4" /> Change Food Image
+                <input type="file" accept="image/*" className="hidden" onChange={handleCardImageUpload} />
+              </label>
+            )}
+
+            <div className="w-full flex gap-2">
+              <Button className="flex-1" loading={savingCard} onClick={saveCardSettings}>Save</Button>
+              <Button variant="outline" className="flex-1" onClick={() => qrModal && downloadQR(qrModal)}>
+                <Download className="w-4 h-4 mr-1.5" /> Print
+              </Button>
+            </div>
+          </div>
+
         </div>
       </Modal>
 
