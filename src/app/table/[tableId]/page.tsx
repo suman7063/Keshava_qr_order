@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { MenuItem, MenuCategory, CartItem, TableSession, Order } from '@/types'
 import { formatCurrency, cn, formatDate } from '@/lib/utils'
 import { Plus, Minus, ChevronDown, Leaf, CheckCircle, Clock, Phone, User, KeyRound, ShoppingCart, Receipt, FileText, X } from 'lucide-react'
@@ -196,19 +197,50 @@ export default function TablePage() {
   }
 
   useEffect(() => {
-    fetch(`/api/sessions?table_id=${tableId}`)
-      .then(r => r.json())
-      .then(({ session: existing }) => {
-        if (existing) {
-          setSession(existing)
-          setBillRequested(existing.bill_requested || false)
-        } else {
-          // Session closed — clear OTP
+    function checkSession() {
+      fetch(`/api/sessions?table_id=${tableId}`)
+        .then(r => r.json())
+        .then(({ session: existing }) => {
+          if (existing) {
+            setSession(existing)
+            setBillRequested(existing.bill_requested || false)
+          } else {
+            setSession(null)
+            setBillRequested(false)
+            setSessionOrders([])
+            setDrawer('none')
+            localStorage.removeItem(`otp-${tableId}`)
+            setGeneratedOtp('')
+            setShowOtpBadge(false)
+          }
+        })
+    }
+
+    checkSession()
+
+    // Realtime — session close hone par customer ka page bhi update ho
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`table-session-${tableId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'table_sessions',
+        filter: `table_id=eq.${tableId}`,
+      }, (payload) => {
+        if (payload.new.status === 'closed') {
+          setSession(null)
+          setBillRequested(false)
+          setSessionOrders([])
+          setDrawer('none')
           localStorage.removeItem(`otp-${tableId}`)
           setGeneratedOtp('')
           setShowOtpBadge(false)
         }
       })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [tableId])
 
   const filteredItems = activeCategory
@@ -242,26 +274,25 @@ export default function TablePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-stone-50 pb-28">
       {/* Header */}
-      <div className="bg-linear-to-br from-orange-500 to-red-500 text-white px-4 pt-8 pb-6">
+      <div className="bg-linear-to-br from-slate-900 to-slate-800 text-white px-4 pt-8 pb-6">
         <div className="max-w-lg mx-auto flex items-start justify-between">
           <div>
-            <p className="text-orange-100 text-sm font-medium">Welcome to</p>
-            <h1 className="text-2xl font-bold mt-1">The QR Kitchen</h1>
-            <p className="text-orange-100 mt-1">Table {tableNumber || tableId.slice(-4)}</p>
+            <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">Welcome to</p>
+            <h1 className="text-2xl font-bold mt-1 tracking-tight">The QR Kitchen</h1>
+            <p className="text-amber-400 text-sm font-medium mt-1">Table {tableNumber || tableId.slice(-4)}</p>
           </div>
           <div className="flex flex-col items-end gap-2 mt-1">
             {session && (
               <button onClick={openOrdersPage}
-                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors">
+                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors border border-white/10">
                 <Receipt className="w-4 h-4" /> My Orders
               </button>
             )}
             {showOtpBadge && generatedOtp && (
-              <button
-                onClick={() => setDrawer('show-otp')}
-                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors">
+              <button onClick={() => setDrawer('show-otp')}
+                className="flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-sm font-medium px-3 py-2 rounded-xl transition-colors border border-amber-500/20">
                 <KeyRound className="w-4 h-4" /> OTP: {generatedOtp}
               </button>
             )}
@@ -270,13 +301,13 @@ export default function TablePage() {
       </div>
 
       {/* Category Tabs */}
-      <div className="sticky top-0 bg-white border-b border-gray-100 z-10 shadow-sm">
+      <div className="sticky top-0 bg-white border-b border-stone-200 z-10 shadow-sm">
         <div className="max-w-lg mx-auto overflow-x-auto scrollbar-none">
-          <div className="flex gap-1 px-4 py-2">
+          <div className="flex gap-1.5 px-4 py-2.5">
             {categories.map(cat => (
               <button key={cat.id} onClick={() => setActiveCategory(cat.id)}
-                className={cn('whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors',
-                  activeCategory === cat.id ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100')}>
+                className={cn('whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all',
+                  activeCategory === cat.id ? 'bg-slate-900 text-white' : 'text-gray-500 hover:bg-stone-100')}>
                 {cat.name}
               </button>
             ))}
@@ -289,17 +320,17 @@ export default function TablePage() {
         {filteredItems.map(item => {
           const qty = cart.find(c => c.menu_item.id === item.id)?.quantity || 0
           return (
-            <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex gap-4">
+            <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 p-4 flex gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-start gap-2">
-                  <h3 className="font-semibold text-gray-900 leading-tight">{item.name}</h3>
+                  <h3 className="font-semibold text-slate-900 leading-tight">{item.name}</h3>
                   {item.is_vegetarian && <Leaf className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />}
                 </div>
-                {item.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
+                {item.description && <p className="text-sm text-slate-400 mt-0.5 line-clamp-2">{item.description}</p>}
                 <div className="flex items-center gap-3 mt-2">
-                  <span className="text-lg font-bold text-orange-600">{formatCurrency(item.price)}</span>
+                  <span className="text-base font-bold text-amber-600">{formatCurrency(item.price)}</span>
                   {item.prep_time_minutes && (
-                    <span className="flex items-center gap-1 text-xs text-gray-400">
+                    <span className="flex items-center gap-1 text-xs text-slate-400">
                       <Clock className="w-3 h-3" /> {item.prep_time_minutes}m
                     </span>
                   )}
@@ -307,16 +338,16 @@ export default function TablePage() {
               </div>
               <div className="shrink-0 flex items-center">
                 {qty === 0 ? (
-                  <button onClick={() => addToCart(item)} className="w-9 h-9 bg-orange-500 text-white rounded-full flex items-center justify-center shadow-sm">
+                  <button onClick={() => addToCart(item)} className="w-9 h-9 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-sm hover:bg-slate-700 transition-colors">
                     <Plus className="w-5 h-5" />
                   </button>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                      <Minus className="w-4 h-4 text-gray-800" />
+                    <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-stone-100 rounded-full flex items-center justify-center">
+                      <Minus className="w-4 h-4 text-slate-700" />
                     </button>
-                    <span className="w-6 text-center font-bold text-gray-900">{qty}</span>
-                    <button onClick={() => addToCart(item)} className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center">
+                    <span className="w-6 text-center font-bold text-slate-900">{qty}</span>
+                    <button onClick={() => addToCart(item)} className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center hover:bg-slate-700 transition-colors">
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
@@ -332,10 +363,10 @@ export default function TablePage() {
         <div className="fixed bottom-0 left-0 right-0 z-20 p-4">
           <div className="max-w-lg mx-auto">
             <button onClick={() => setDrawer('cart')}
-              className="w-full bg-orange-500 text-white rounded-2xl p-4 flex items-center shadow-lg">
-              <div className="bg-orange-400 rounded-xl w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">{cartCount}</div>
+              className="w-full bg-slate-900 text-white rounded-2xl p-4 flex items-center shadow-xl">
+              <div className="bg-amber-500 rounded-xl w-8 h-8 flex items-center justify-center text-sm font-bold mr-3 text-white">{cartCount}</div>
               <span className="flex-1 text-left font-semibold">View Cart</span>
-              <span className="font-bold">{formatCurrency(cartTotal)}</span>
+              <span className="font-bold text-amber-400">{formatCurrency(cartTotal)}</span>
             </button>
           </div>
         </div>
