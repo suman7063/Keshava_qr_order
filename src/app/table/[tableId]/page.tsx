@@ -97,7 +97,14 @@ export default function TablePage() {
     if (existing) {
       setSession(existing)
       setBillRequested(existing.bill_requested || false)
-      setDrawer('verify-otp')
+      const savedOtp = localStorage.getItem(`otp-${tableId}`)
+      if (savedOtp) {
+        // Session creator — place order directly
+        await placeOrder(existing, currentCustomerName || existing.customer_name || 'Customer')
+      } else {
+        // New person joining — ask for OTP
+        setDrawer('verify-otp')
+      }
     } else {
       setDrawer('customer-info')
     }
@@ -340,7 +347,7 @@ export default function TablePage() {
           <div className="absolute inset-0 bg-black/50"
             onClick={() => (drawer !== 'show-otp' || session) && setDrawer('none')} />
 
-          <div className="relative bg-white rounded-t-3xl max-h-[92vh] flex flex-col">
+          <div className="relative bg-white rounded-t-3xl max-h-[90vh] flex flex-col overflow-hidden">
 
             {/* CART */}
             {drawer === 'cart' && (
