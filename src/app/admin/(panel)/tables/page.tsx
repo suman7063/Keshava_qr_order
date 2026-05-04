@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
-import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList } from 'lucide-react'
+import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList, Copy, Check } from 'lucide-react'
 import QRCode from 'qrcode'
 import { formatCurrency } from '@/lib/utils'
 
 interface OrderItem { id: string; quantity: number; total_price: number; menu_item?: { name: string } }
 interface TableOrder { id: string; customer_name?: string; status: string; total_amount: number; created_at: string; items?: OrderItem[] }
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+const BASE_URL = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000')
 
 const statusVariant = (status: string) => {
   if (status === 'available') return 'success'
@@ -42,6 +42,13 @@ export default function TablesPage() {
   const [detailTable, setDetailTable] = useState<RestaurantTable | null>(null)
   const [detailOrders, setDetailOrders] = useState<TableOrder[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  function copyUrl(tableId: string) {
+    navigator.clipboard.writeText(`${BASE_URL}/table/${tableId}`)
+    setCopiedId(tableId)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
 
   async function fetchTables() {
     const res = await fetch('/api/tables')
@@ -124,8 +131,8 @@ export default function TablesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Tables</h1>
           <p className="text-gray-500 text-sm mt-0.5">Manage restaurant tables and generate QR codes</p>
         </div>
-        <Button onClick={() => setShowAdd(true)}>
-          <Plus className="w-4 h-4 mr-2" /> Add Table
+        <Button onClick={() => setShowAdd(true)} className="whitespace-nowrap shrink-0">
+          <Plus className="w-4 h-4 mr-2 shrink-0" /> Add Table
         </Button>
       </div>
 
@@ -144,7 +151,16 @@ export default function TablesPage() {
                   {STATUS_LABEL[table.status]}
                 </Badge>
               </div>
-              <p className="text-xs text-gray-400 mb-4">Added {formatDate(table.created_at)}</p>
+              <p className="text-xs text-gray-400 mb-3">Added {formatDate(table.created_at)}</p>
+              <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5 mb-3">
+                <p className="text-xs text-gray-400 truncate flex-1">/table/{table.id.slice(-8)}</p>
+                <button onClick={() => copyUrl(table.id)}
+                  className="shrink-0 text-gray-400 hover:text-orange-500 transition-colors">
+                  {copiedId === table.id
+                    ? <Check className="w-3.5 h-3.5 text-green-500" />
+                    : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => showQR(table)} className="flex-1">
                   <QrCode className="w-3.5 h-3.5 mr-1.5" /> QR Code
@@ -224,7 +240,6 @@ export default function TablesPage() {
       <Modal isOpen={!!qrModal} onClose={() => setQrModal(null)} title={`QR Code — Table ${qrModal?.table_number}`}>
         <div className="text-center">
           {qrDataUrl && <img src={qrDataUrl} alt="QR Code" className="mx-auto rounded-xl border border-gray-100 shadow" />}
-          <p className="text-sm text-gray-500 mt-3 break-all">{BASE_URL}/table/{qrModal?.id}</p>
           <Button className="mt-4 w-full" onClick={() => qrModal && downloadQR(qrModal)}>
             <Download className="w-4 h-4 mr-2" /> Download QR Code
           </Button>

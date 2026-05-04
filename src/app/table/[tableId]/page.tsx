@@ -218,6 +218,9 @@ export default function TablePage() {
 
     checkSession()
 
+    // Poll every 30s as fallback
+    const poll = setInterval(checkSession, 30000)
+
     // Realtime — session close hone par customer ka page bhi update ho
     const supabase = createClient()
     const channel = supabase
@@ -240,8 +243,35 @@ export default function TablePage() {
       })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { supabase.removeChannel(channel); clearInterval(poll) }
   }, [tableId])
+
+  function getFoodImage(name: string): string {
+    const n = name.toLowerCase()
+    const base = 'https://images.unsplash.com/photo-'
+    const q = '?w=400&q=75&auto=format&fit=crop'
+    if (n.includes('chicken')) return `${base}1598515214211-89d3c73ae83b${q}`
+    if (n.includes('pizza')) return `${base}1565299624946-b28f40a0ae38${q}`
+    if (n.includes('burger')) return `${base}1568901346375-23c9450c58cd${q}`
+    if (n.includes('salad')) return `${base}1512621776951-a57141f2eefd${q}`
+    if (n.includes('cake') || n.includes('chocolate') || n.includes('lava')) return `${base}1578985545062-69928b1d9587${q}`
+    if (n.includes('lemonade') || n.includes('juice') || n.includes('drink')) return `${base}1621263764928-df1444c5e859${q}`
+    if (n.includes('cola') || n.includes('soda') || n.includes('coca')) return `${base}1571019613914-85f342c6a11e${q}`
+    if (n.includes('coffee') || n.includes('tea')) return `${base}1495474472287-4d71bcdd2085${q}`
+    if (n.includes('bread') || n.includes('garlic')) return `${base}1549931319-a545dcf3bc73${q}`
+    if (n.includes('steak') || n.includes('beef')) return `${base}1546964124-0cce460e69b1${q}`
+    if (n.includes('lamb') || n.includes('mutton')) return `${base}1504674900247-0877df9cc836${q}`
+    if (n.includes('pork') || n.includes('ribs')) return `${base}1544025162-d76538d31203${q}`
+    if (n.includes('fish') || n.includes('prawn') || n.includes('shrimp')) return `${base}1559339352-11d035aa65de${q}`
+    if (n.includes('pasta') || n.includes('noodle')) return `${base}1563379926898-05f4575a45d8${q}`
+    if (n.includes('rice') || n.includes('biryani')) return `${base}1603133872878-684f208fb84b${q}`
+    if (n.includes('soup')) return `${base}1547592166-23ac45744acd${q}`
+    if (n.includes('sandwich') || n.includes('wrap')) return `${base}1553979459-d1b5a5e0d3e3${q}`
+    if (n.includes('paneer')) return `${base}1631452180519-cd6e1ab18cbc${q}`
+    if (n.includes('caesar')) return `${base}1550304943-4f24f54ddde9${q}`
+    if (n.includes('margherita')) return `${base}1565299624946-b28f40a0ae38${q}`
+    return `${base}1504674900247-0877df9cc836${q}`
+  }
 
   const filteredItems = activeCategory
     ? menuItems.filter(i => i.category_id === activeCategory && i.is_available)
@@ -274,26 +304,25 @@ export default function TablePage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-28">
+    <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
-      <div className="bg-linear-to-br from-slate-900 to-slate-800 text-white px-4 pt-8 pb-6">
-        <div className="max-w-lg mx-auto flex items-start justify-between">
+      <div className="bg-[#1e3a5f] px-4 pt-8 pb-4">
+        <div className="max-w-lg mx-auto flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">Welcome to</p>
-            <h1 className="text-2xl font-bold mt-1 tracking-tight">The QR Kitchen</h1>
-            <p className="text-amber-400 text-sm font-medium mt-1">Table {tableNumber || tableId.slice(-4)}</p>
+            <h1 className="text-xl font-black text-white tracking-widest uppercase">The QR Kitchen</h1>
+            <p className="text-blue-300 text-xs mt-0.5">Table {tableNumber || tableId.slice(-4)}</p>
           </div>
-          <div className="flex flex-col items-end gap-2 mt-1">
+          <div className="flex flex-col items-end gap-1.5">
             {session && (
               <button onClick={openOrdersPage}
-                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors border border-white/10">
-                <Receipt className="w-4 h-4" /> My Orders
+                className="flex items-center gap-1.5 bg-white/15 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+                <Receipt className="w-3.5 h-3.5" /> My Orders
               </button>
             )}
             {showOtpBadge && generatedOtp && (
               <button onClick={() => setDrawer('show-otp')}
-                className="flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-sm font-medium px-3 py-2 rounded-xl transition-colors border border-amber-500/20">
-                <KeyRound className="w-4 h-4" /> OTP: {generatedOtp}
+                className="flex items-center gap-1.5 bg-white/15 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+                <KeyRound className="w-3.5 h-3.5" /> {generatedOtp}
               </button>
             )}
           </div>
@@ -301,57 +330,69 @@ export default function TablePage() {
       </div>
 
       {/* Category Tabs */}
-      <div className="sticky top-0 bg-white border-b border-stone-200 z-10 shadow-sm">
+      <div className="sticky top-0 bg-white shadow-sm z-10">
         <div className="max-w-lg mx-auto overflow-x-auto scrollbar-none">
-          <div className="flex gap-1.5 px-4 py-2.5">
-            {categories.map(cat => (
-              <button key={cat.id} onClick={() => setActiveCategory(cat.id)}
-                className={cn('whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all',
-                  activeCategory === cat.id ? 'bg-slate-900 text-white' : 'text-gray-500 hover:bg-stone-100')}>
-                {cat.name}
-              </button>
+          <div className="flex items-center px-3 py-0">
+            {categories.map((cat, i) => (
+              <div key={cat.id} className="flex items-center shrink-0">
+                {i > 0 && <span className="text-gray-300 mx-1 text-xs">|</span>}
+                <button onClick={() => setActiveCategory(cat.id)}
+                  className={cn('whitespace-nowrap px-3 py-3 text-xs font-bold uppercase tracking-wide transition-all',
+                    activeCategory === cat.id ? 'text-[#1e3a5f]' : 'text-gray-400')}>
+                  {cat.name}
+                </button>
+              </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Menu Items */}
-      <div className="max-w-lg mx-auto px-4 mt-4 space-y-3">
+      {/* Menu Items — 2 column grid */}
+      <div className="max-w-lg mx-auto px-3 mt-3 grid grid-cols-2 gap-3">
         {filteredItems.map(item => {
           const qty = cart.find(c => c.menu_item.id === item.id)?.quantity || 0
           return (
-            <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 p-4 flex gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start gap-2">
-                  <h3 className="font-semibold text-slate-900 leading-tight">{item.name}</h3>
-                  {item.is_vegetarian && <Leaf className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />}
-                </div>
-                {item.description && <p className="text-sm text-slate-400 mt-0.5 line-clamp-2">{item.description}</p>}
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="text-base font-bold text-amber-600">{formatCurrency(item.price)}</span>
-                  {item.prep_time_minutes && (
-                    <span className="flex items-center gap-1 text-xs text-slate-400">
-                      <Clock className="w-3 h-3" /> {item.prep_time_minutes}m
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="shrink-0 flex items-center">
-                {qty === 0 ? (
-                  <button onClick={() => addToCart(item)} className="w-9 h-9 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-sm hover:bg-slate-700 transition-colors">
-                    <Plus className="w-5 h-5" />
-                  </button>
+            <div key={item.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              {/* Image */}
+              <div className="w-full h-32 bg-gray-100 relative overflow-hidden">
+                {item.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-stone-100 rounded-full flex items-center justify-center">
-                      <Minus className="w-4 h-4 text-slate-700" />
-                    </button>
-                    <span className="w-6 text-center font-bold text-slate-900">{qty}</span>
-                    <button onClick={() => addToCart(item)} className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center hover:bg-slate-700 transition-colors">
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={getFoodImage(item.name)} alt={item.name} className="w-full h-full object-cover" />
+                )}
+              </div>
+              {/* Content */}
+              <div className="p-3">
+                <div className="flex items-start gap-1 mb-0.5">
+                  <h3 className="font-bold text-gray-900 text-sm leading-tight flex-1">{item.name}</h3>
+                  {item.is_vegetarian && <Leaf className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />}
+                </div>
+                {item.description && (
+                  <p className="text-xs text-gray-400 line-clamp-2 mb-2">{item.description}</p>
+                )}
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-sm font-bold text-red-500">{formatCurrency(item.price)}</span>
+                  {qty === 0 ? (
+                    <button onClick={() => addToCart(item)}
+                      className="w-7 h-7 bg-[#7a5c3a] text-white rounded-full flex items-center justify-center shadow-sm">
                       <Plus className="w-4 h-4" />
                     </button>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => removeFromCart(item.id)}
+                        className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                        <Minus className="w-3 h-3 text-gray-700" />
+                      </button>
+                      <span className="text-xs font-bold text-gray-900 w-4 text-center">{qty}</span>
+                      <button onClick={() => addToCart(item)}
+                        className="w-6 h-6 bg-[#7a5c3a] text-white rounded-full flex items-center justify-center">
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )
@@ -363,10 +404,10 @@ export default function TablePage() {
         <div className="fixed bottom-0 left-0 right-0 z-20 p-4">
           <div className="max-w-lg mx-auto">
             <button onClick={() => setDrawer('cart')}
-              className="w-full bg-slate-900 text-white rounded-2xl p-4 flex items-center shadow-xl">
-              <div className="bg-amber-500 rounded-xl w-8 h-8 flex items-center justify-center text-sm font-bold mr-3 text-white">{cartCount}</div>
+              className="w-full bg-[#1e3a5f] text-white rounded-2xl p-4 flex items-center shadow-xl">
+              <div className="bg-white/20 rounded-xl w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">{cartCount}</div>
               <span className="flex-1 text-left font-semibold">View Cart</span>
-              <span className="font-bold text-amber-400">{formatCurrency(cartTotal)}</span>
+              <span className="font-bold">{formatCurrency(cartTotal)}</span>
             </button>
           </div>
         </div>
