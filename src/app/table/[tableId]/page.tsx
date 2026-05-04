@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { MenuItem, MenuCategory, CartItem, TableSession, Order } from '@/types'
 import { formatCurrency, cn, formatDate } from '@/lib/utils'
 import { Plus, Minus, ChevronDown, Leaf, CheckCircle, Clock, Phone, User, KeyRound, ShoppingCart, Receipt, FileText, X } from 'lucide-react'
+import MenuTemplate1 from '@/lib/menu-templates/template1'
+import MenuTemplate2 from '@/lib/menu-templates/template2'
 import { Button } from '@/components/ui/Button'
 
 
@@ -37,19 +39,25 @@ export default function TablePage() {
   const [currentCustomerName, setCurrentCustomerName] = useState('')
   const [tableNumber, setTableNumber] = useState('')
   const [showOtpBadge, setShowOtpBadge] = useState(false)
+  const [showMenuImages, setShowMenuImages] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const [cats, items, tableData] = await Promise.all([
+        const [cats, items, tableData, settings] = await Promise.all([
           fetch('/api/menu-categories').then(r => r.json()),
           fetch('/api/menu-items').then(r => r.json()),
           fetch(`/api/tables/${tableId}`).then(r => r.json()),
+          fetch('/api/settings').then(r => r.json()),
         ])
         setCategories(cats)
         setMenuItems(items)
+        setShowMenuImages(settings.show_menu_images ?? true)
         if (cats.length > 0) setActiveCategory(cats[0].id)
         if (tableData?.table_number) setTableNumber(tableData.table_number)
+        // Restore OTP from localStorage if session was already started
+        const saved = localStorage.getItem(`otp-${tableId}`)
+        if (saved) { setGeneratedOtp(saved); setShowOtpBadge(true) }
       } catch (e) {
         setLoadError(String(e))
       } finally {
@@ -57,9 +65,6 @@ export default function TablePage() {
       }
     }
     load()
-    // Restore OTP from localStorage if session was already started
-    const saved = localStorage.getItem(`otp-${tableId}`)
-    if (saved) { setGeneratedOtp(saved); setShowOtpBadge(true) }
   }, [tableId])
 
   async function fetchSessionOrders(sessionId: string) {
@@ -347,57 +352,11 @@ export default function TablePage() {
         </div>
       </div>
 
-      {/* Menu Items — 2 column grid */}
-      <div className="max-w-lg mx-auto px-3 mt-3 grid grid-cols-2 gap-3">
-        {filteredItems.map(item => {
-          const qty = cart.find(c => c.menu_item.id === item.id)?.quantity || 0
-          return (
-            <div key={item.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              {/* Image */}
-              <div className="w-full h-32 bg-gray-100 relative overflow-hidden">
-                {item.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={getFoodImage(item.name)} alt={item.name} className="w-full h-full object-cover" />
-                )}
-              </div>
-              {/* Content */}
-              <div className="p-3">
-                <div className="flex items-start gap-1 mb-0.5">
-                  <h3 className="font-bold text-gray-900 text-sm leading-tight flex-1">{item.name}</h3>
-                  {item.is_vegetarian && <Leaf className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />}
-                </div>
-                {item.description && (
-                  <p className="text-xs text-gray-400 line-clamp-2 mb-2">{item.description}</p>
-                )}
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-sm font-bold text-red-500">{formatCurrency(item.price)}</span>
-                  {qty === 0 ? (
-                    <button onClick={() => addToCart(item)}
-                      className="w-7 h-7 bg-[#7a5c3a] text-white rounded-full flex items-center justify-center shadow-sm">
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => removeFromCart(item.id)}
-                        className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
-                        <Minus className="w-3 h-3 text-gray-700" />
-                      </button>
-                      <span className="text-xs font-bold text-gray-900 w-4 text-center">{qty}</span>
-                      <button onClick={() => addToCart(item)}
-                        className="w-6 h-6 bg-[#7a5c3a] text-white rounded-full flex items-center justify-center">
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      {/* Menu Items */}
+      {showMenuImages
+        ? <MenuTemplate1 items={filteredItems} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} getFoodImage={getFoodImage} />
+        : <MenuTemplate2 items={filteredItems} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} />
+      }
 
       {/* Cart Bar */}
       {cartCount > 0 && drawer === 'none' && (

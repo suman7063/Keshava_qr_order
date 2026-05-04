@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
 import { Plus, Trash2, Users, Eye, EyeOff, Pencil, Camera } from 'lucide-react'
-import Image from 'next/image'
+import { Toast, useToast } from '@/components/ui/Toast'
+import { uploadImage } from '@/lib/uploadImage'
 
 interface Manager {
   user_id: string
@@ -18,14 +18,8 @@ interface Manager {
 
 const inputClass = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
 
-async function uploadAvatar(file: File, key: string): Promise<string> {
-  const supabase = createClient()
-  const ext = file.name.split('.').pop() || 'jpg'
-  const path = `${key}-${Date.now()}.${ext}`
-  const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-  if (error) throw new Error(error.message)
-  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-  return data.publicUrl
+async function uploadAvatar(file: File): Promise<string> {
+  return uploadImage(file, 'avatars')
 }
 
 function Avatar({ name, email, avatar_url, size = 9 }: { name: string; email: string; avatar_url: string; size?: number }) {
@@ -33,14 +27,8 @@ function Avatar({ name, email, avatar_url, size = 9 }: { name: string; email: st
   const px = size * 4
   if (avatar_url) {
     return (
-      <Image
-        src={avatar_url}
-        alt={name || email}
-        width={px}
-        height={px}
-        className="rounded-full object-cover shrink-0"
-        style={{ width: px, height: px }}
-      />
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={avatar_url} alt={name || email} className="rounded-full object-cover shrink-0" style={{ width: px, height: px }} />
     )
   }
   return (
@@ -59,7 +47,8 @@ function AvatarPicker({ preview, onChange }: { preview: string; onChange: (file:
     <div className="flex items-center gap-4">
       <div className="relative w-16 h-16 shrink-0 cursor-pointer" onClick={() => ref.current?.click()}>
         {preview ? (
-          <Image src={preview} alt="Preview" width={64} height={64} className="w-16 h-16 rounded-full object-cover border border-gray-200" />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview} alt="Preview" className="w-16 h-16 rounded-full object-cover border border-gray-200" />
         ) : (
           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center border border-dashed border-gray-300">
             <Camera className="w-6 h-6 text-gray-400" />
@@ -92,7 +81,7 @@ export default function ManagersPage() {
   const [showEditPassword, setShowEditPassword] = useState(false)
   const [error, setError] = useState('')
   const [editError, setEditError] = useState('')
-  const [success, setSuccess] = useState('')
+  const { toast, showToast, dismissToast } = useToast()
 
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [addAvatarFile, setAddAvatarFile] = useState<File | null>(null)
@@ -127,7 +116,7 @@ export default function ManagersPage() {
     try {
       let avatar_url = ''
       if (addAvatarFile) {
-        avatar_url = await uploadAvatar(addAvatarFile, `new-${Date.now()}`)
+        avatar_url = await uploadAvatar(addAvatarFile)
       }
       const res = await fetch('/api/admin/managers', {
         method: 'POST',
@@ -138,13 +127,13 @@ export default function ManagersPage() {
       if (!res.ok) {
         setError(data.error || 'Something went wrong.')
       } else {
-        setSuccess(`Manager "${form.name || form.email}" created successfully!`)
+        showToast(`Manager "${form.name || form.email}" created successfully!`)
         setForm({ name: '', email: '', password: '' })
         setAddAvatarFile(null)
         setAddAvatarPreview('')
         setShowAdd(false)
         fetchManagers()
-        setTimeout(() => setSuccess(''), 4000)
+
       }
     } catch (e) {
       setError((e as Error).message || 'Upload failed.')
@@ -160,7 +149,7 @@ export default function ManagersPage() {
     try {
       let avatar_url: string | undefined
       if (editAvatarFile) {
-        avatar_url = await uploadAvatar(editAvatarFile, editManager.user_id)
+        avatar_url = await uploadAvatar(editAvatarFile)
       }
       const body: Record<string, string> = { name: editName }
       if (newPassword) body.password = newPassword
@@ -174,13 +163,13 @@ export default function ManagersPage() {
       if (!res.ok) {
         setEditError(data.error || 'Something went wrong.')
       } else {
-        setSuccess(`Manager "${editName || editManager.email}" updated!`)
+        showToast(`Manager "${editName || editManager.email}" updated!`)
         setEditManager(null)
         setNewPassword('')
         setEditAvatarFile(null)
         setEditAvatarPreview('')
         fetchManagers()
-        setTimeout(() => setSuccess(''), 4000)
+
       }
     } catch (e) {
       setEditError((e as Error).message || 'Upload failed.')
@@ -217,11 +206,7 @@ export default function ManagersPage() {
         </Button>
       </div>
 
-      {success && (
-        <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">
-          {success}
-        </div>
-      )}
+      {toast && <Toast message={toast} onDismiss={dismissToast} />}
 
       {loading ? (
         <p className="text-gray-400">Loading...</p>

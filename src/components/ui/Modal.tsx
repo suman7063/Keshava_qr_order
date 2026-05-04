@@ -31,8 +31,8 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', headerExt
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className={cn('relative bg-white rounded-2xl shadow-xl w-full', sizeClasses[size])}>
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+      <div className={cn('relative bg-white rounded-2xl shadow-xl w-full flex flex-col', sizeClasses[size])} style={{ maxHeight: 'calc(100vh - 32px)' }}>
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <div className="flex items-center gap-3">
             {headerExtra}
@@ -41,7 +41,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', headerExt
             </button>
           </div>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   )

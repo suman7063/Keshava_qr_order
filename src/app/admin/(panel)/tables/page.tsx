@@ -10,6 +10,7 @@ import { formatDate } from '@/lib/utils'
 import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList, Copy, Check, Palette, Type, ImageIcon } from 'lucide-react'
 import QRCode from 'qrcode'
 import { formatCurrency } from '@/lib/utils'
+import { uploadImage } from '@/lib/uploadImage'
 
 interface OrderItem { id: string; quantity: number; total_price: number; menu_item?: { name: string } }
 interface TableOrder { id: string; customer_name?: string; status: string; total_amount: number; created_at: string; items?: OrderItem[] }
@@ -55,6 +56,8 @@ export default function TablesPage() {
   const [cardLabel, setCardLabel] = useState('')
   const [editingField, setEditingField] = useState<'heading' | 'subtext' | 'label' | null>(null)
   const [savingCard, setSavingCard] = useState(false)
+  const [uploadingCardImg, setUploadingCardImg] = useState(false)
+  const [uploadingBgImg, setUploadingBgImg] = useState(false)
 
   const DEFAULT_TEXTS: Record<QRTemplate, { heading: string; subtext: string; label: string }> = {
     classic:   { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
@@ -63,12 +66,29 @@ export default function TablesPage() {
     template4: { heading: 'MENU',      subtext: 'Scan to view our', label: ''               },
   }
 
-  function handleCardImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleCardImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => setCardImage(ev.target?.result as string)
-    reader.readAsDataURL(file)
+    setUploadingCardImg(true)
+    try {
+      const url = await uploadImage(file, 'qr-card')
+      setCardImage(url)
+    } finally {
+      setUploadingCardImg(false)
+    }
+  }
+
+  async function handleBgImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingBgImg(true)
+    try {
+      const url = await uploadImage(file, 'qr-bg')
+      setCardBgImage(url)
+      setCardBgColor('')
+    } finally {
+      setUploadingBgImg(false)
+    }
   }
 
   async function saveCardSettings() {
@@ -303,15 +323,9 @@ export default function TablesPage() {
                 value={cardBgColor || (TEMPLATES.find(x => x.id === cardTemplate)?.cardBg ?? '#ffffff')}
                 onChange={e => { setCardBgColor(e.target.value); setCardBgImage('') }}
                 className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
-              <label className={`cursor-pointer p-1 rounded border transition-colors ${cardBgImage ? 'border-orange-400 text-orange-500' : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-400'}`} title="Use image as background">
+              <label className={`cursor-pointer p-1 rounded border transition-colors ${uploadingBgImg ? 'opacity-50 cursor-wait' : ''} ${cardBgImage ? 'border-orange-400 text-orange-500' : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-400'}`} title="Use image as background">
                 <ImageIcon className="w-4 h-4" />
-                <input type="file" accept="image/*" className="hidden" onChange={e => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  const reader = new FileReader()
-                  reader.onload = ev => { setCardBgImage(ev.target?.result as string); setCardBgColor('') }
-                  reader.readAsDataURL(file)
-                }} />
+                <input type="file" accept="image/*" className="hidden" disabled={uploadingBgImg} onChange={handleBgImageUpload} />
               </label>
               <button onClick={() => { setCardBgColor(''); setCardBgImage('') }} className="text-xs text-gray-400 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300">Reset</button>
             </div>
@@ -430,9 +444,9 @@ export default function TablesPage() {
             })()}
 
             {cardTemplate !== 'minimal' && cardTemplate !== 'template4' && (
-              <label className="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-xl py-2 text-sm text-gray-500 hover:border-orange-400 hover:text-orange-500 cursor-pointer transition-colors">
-                <Plus className="w-4 h-4" /> Change Food Image
-                <input type="file" accept="image/*" className="hidden" onChange={handleCardImageUpload} />
+              <label className={`w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-xl py-2 text-sm transition-colors ${uploadingCardImg ? 'text-gray-300 cursor-wait' : 'text-gray-500 hover:border-orange-400 hover:text-orange-500 cursor-pointer'}`}>
+                <Plus className="w-4 h-4" /> {uploadingCardImg ? 'Uploading...' : 'Change Food Image'}
+                <input type="file" accept="image/*" className="hidden" disabled={uploadingCardImg} onChange={handleCardImageUpload} />
               </label>
             )}
 
