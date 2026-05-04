@@ -366,50 +366,54 @@ export default function ManagerPage() {
                   const removedList = removedItems[order.id] || []
                   const total = order.items?.filter(i => !removedList.includes(i.id)).reduce((s, i) => s + i.total_price, 0) ?? order.total_amount
                   return (
-                    <div key={order.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                       {/* Header */}
-                      <div className="bg-linear-to-r from-orange-500 to-red-500 px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <p className="text-white font-bold">Table {order.table?.table_number}</p>
-                          <span className="text-orange-100 text-xs flex items-center gap-0.5">
-                            <Clock className="w-3 h-3" /> {getElapsed(order.created_at)}m
-                          </span>
+                      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-1.5 h-10 bg-orange-500 rounded-full shrink-0" />
+                          <div>
+                            <p className="font-bold text-gray-900">Table {order.table?.table_number}</p>
+                            <p className="text-xs text-gray-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3" /> {getElapsed(order.created_at)} min ago
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-white font-bold">{formatCurrency(total)}</p>
-                          <span className="bg-white/25 text-white text-xs font-bold px-2 py-0.5 rounded-full">NEW</span>
+                        <div className="flex items-center gap-3">
+                          <p className="font-bold text-gray-900">{formatCurrency(total)}</p>
                         </div>
                       </div>
 
                       {/* Items */}
-                      <div className="px-4 py-3 space-y-2">
+                      <div className="px-4 py-3 space-y-2.5">
                         {order.items?.map(item => {
                           const removed = removedList.includes(item.id)
                           return (
-                            <div key={item.id} className={`flex items-center gap-2 text-sm ${removed ? 'opacity-40' : ''}`}>
+                            <div key={item.id} className={`flex items-center gap-3 text-sm transition-opacity ${removed ? 'opacity-30' : ''}`}>
+                              <span className={`flex-1 ${removed ? 'line-through text-gray-300' : 'text-gray-700'}`}>
+                                {item.menu_item?.name}{item.quantity > 1 && <span className="text-orange-500 font-semibold"> ×{item.quantity}</span>}
+                              </span>
+                              <span className={`text-sm font-semibold ${removed ? 'text-gray-200' : 'text-gray-500'}`}>{formatCurrency(item.total_price)}</span>
                               <button onClick={() => toggleRemoveItem(order.id, item.id, item.menu_item?.name || 'item')}
-                                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${removed ? 'bg-gray-200 text-gray-400' : 'bg-red-100 text-red-500'}`}>
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 border transition-colors ${
+                                  removed ? 'border-gray-200 text-gray-300' : 'border-red-200 text-red-400 hover:bg-red-50'}`}>
                                 {removed ? '↩' : '×'}
                               </button>
-                              <span className={`flex-1 ${removed ? 'line-through text-gray-400' : 'text-gray-800 font-medium'}`}>
-                                {item.menu_item?.name}{item.quantity > 1 && <span className="text-orange-500 font-bold"> ×{item.quantity}</span>}
-                              </span>
-                              <span className={`font-semibold ${removed ? 'text-gray-300' : 'text-gray-600'}`}>{formatCurrency(item.total_price)}</span>
                             </div>
                           )
                         })}
                       </div>
 
                       {order.notes && (
-                        <p className="text-xs text-yellow-700 bg-yellow-50 mx-4 rounded-xl px-3 py-2 mb-3">📝 {order.notes}</p>
+                        <p className="text-xs text-amber-700 bg-amber-50 mx-4 rounded-xl px-3 py-2 mb-3 border border-amber-100">📝 {order.notes}</p>
                       )}
 
                       {/* Actions */}
-                      <div className="px-4 pb-4 flex gap-2">
-                        <Button size="sm" className="flex-1" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
-                          <CheckCircle className="w-4 h-4 mr-1" /> Accept & Print
+                      <div className="px-4 pb-4 pt-1 flex items-center justify-between">
+                        <Button size="sm" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
+                          <CheckCircle className="w-4 h-4 mr-1.5" /> Accept & Print
                         </Button>
-                        <Button size="sm" variant="danger" loading={updatingId === order.id} onClick={() => updateStatus(order.id, 'cancelled')}>
+                        <Button size="sm" variant="danger" loading={updatingId === order.id}
+                          onClick={() => { if (confirm('Cancel this order?')) updateStatus(order.id, 'cancelled') }}>
                           <XCircle className="w-4 h-4" />
                         </Button>
                       </div>
