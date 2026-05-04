@@ -27,7 +27,7 @@ const STATUS_LABEL: Record<TableStatus, string> = {
   reserved: 'Reserved',
 }
 
-const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
+const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
 
 export default function TablesPage() {
   const [tables, setTables] = useState<RestaurantTable[]>([])

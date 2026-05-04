@@ -16,7 +16,7 @@ interface Manager {
   created_at: string
 }
 
-const inputClass = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
+const inputClass = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400"
 
 async function uploadAvatar(file: File, key: string): Promise<string> {
   const supabase = createClient()

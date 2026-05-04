@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import {
   BarChart3, DollarSign, ShoppingBag, TrendingUp, Clock,
-  CheckCircle, XCircle, LogOut, RefreshCw, AlertCircle,
+  CheckCircle, LogOut, RefreshCw, AlertCircle,
   ClipboardList, LayoutDashboard, ChefHat, FileText
 } from 'lucide-react'
 
@@ -39,6 +39,8 @@ export default function ManagerPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [managerEmail, setManagerEmail] = useState('')
   const [removedItems, setRemovedItems] = useState<Record<string, string[]>>({})
+  const [rejectConfirm, setRejectConfirm] = useState<string | null>(null)
+  const [removeItemConfirm, setRemoveItemConfirm] = useState<{ orderId: string; itemId: string; itemName: string } | null>(null)
   const [managerName, setManagerName] = useState('')
   const [managerAvatar, setManagerAvatar] = useState('')
 
@@ -130,12 +132,20 @@ export default function ManagerPage() {
   }
 
   function toggleRemoveItem(orderId: string, itemId: string, itemName: string) {
-    setRemovedItems(prev => {
-      const current = prev[orderId] || []
-      const already = current.includes(itemId)
-      if (!already && !confirm(`Remove "${itemName}" from this order?`)) return prev
-      return { ...prev, [orderId]: already ? current.filter(i => i !== itemId) : [...current, itemId] }
-    })
+    const current = removedItems[orderId] || []
+    const already = current.includes(itemId)
+    if (already) {
+      setRemovedItems(prev => ({ ...prev, [orderId]: current.filter(i => i !== itemId) }))
+    } else {
+      setRemoveItemConfirm({ orderId, itemId, itemName })
+    }
+  }
+
+  function confirmRemoveItem() {
+    if (!removeItemConfirm) return
+    const { orderId, itemId } = removeItemConfirm
+    setRemovedItems(prev => ({ ...prev, [orderId]: [...(prev[orderId] || []), itemId] }))
+    setRemoveItemConfirm(null)
   }
 
   async function acceptOrder(order: Order) {
@@ -208,28 +218,28 @@ export default function ManagerPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
+      <div className="bg-slate-900 px-4 pt-4 pb-2 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto">
           {/* Top row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               {managerAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={managerAvatar} alt={managerName || managerEmail} className="w-9 h-9 rounded-xl object-cover shrink-0" />
+                <img src={managerAvatar} alt={managerName || managerEmail} className="w-9 h-9 rounded-xl object-cover shrink-0 ring-2 ring-white/20" />
               ) : (
-                <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center shrink-0 text-white font-bold text-sm">
+                <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center shrink-0 text-white font-bold text-sm">
                   {(managerName || managerEmail)[0]?.toUpperCase() || <BarChart3 className="w-4 h-4" />}
                 </div>
               )}
               <div>
-                <h1 className="text-base font-bold text-gray-900 leading-tight">
+                <h1 className="text-base font-bold text-white leading-tight">
                   {managerName ? managerName : 'Manager Dashboard'}
                 </h1>
                 {managerEmail && (
-                  <p className="text-purple-500 text-xs font-medium truncate max-w-[180px] sm:max-w-xs">
+                  <p className="text-slate-400 text-xs font-medium truncate max-w-[180px] sm:max-w-xs">
                     {managerEmail}
                   </p>
                 )}
@@ -239,27 +249,27 @@ export default function ManagerPage() {
             <div className="flex items-center gap-1">
               {pendingOrders.length > 0 && (
                 <button onClick={() => setActiveTab('new-orders')}
-                  className="flex items-center gap-1 bg-red-50 border border-red-200 text-red-600 px-2.5 py-1 rounded-full text-xs font-bold animate-pulse">
+                  className="flex items-center gap-1 bg-orange-500 text-white px-2.5 py-1 rounded-full text-xs font-bold animate-pulse">
                   <AlertCircle className="w-3 h-3" />
                   {pendingOrders.length}
                 </button>
               )}
-              <button onClick={fetchOrders} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                <RefreshCw className="w-4 h-4 text-gray-400" />
+              <button onClick={fetchOrders} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                <RefreshCw className="w-4 h-4 text-slate-400" />
               </button>
               <button onClick={() => router.push('/kitchen')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Kitchen">
-                <ChefHat className="w-4 h-4 text-gray-500" />
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Kitchen">
+                <ChefHat className="w-4 h-4 text-slate-400" />
               </button>
               <button onClick={handleLogout}
-                className="p-2 hover:bg-red-50 rounded-lg transition-colors" title="Logout">
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Logout">
                 <LogOut className="w-4 h-4 text-red-400" />
               </button>
             </div>
           </div>
 
           {/* Tabs — scrollable on mobile */}
-          <div className="mt-3 flex gap-1 overflow-x-auto scrollbar-none pb-0.5">
+          <div className="mt-4 flex gap-1.5 overflow-x-auto scrollbar-none pb-2">
             {tabs.map(tab => (
               <button
                 key={tab.id}
@@ -267,8 +277,8 @@ export default function ManagerPage() {
                 className={cn(
                   'flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap shrink-0',
                   activeTab === tab.id
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-100'
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
                 )}
               >
                 {tab.icon}
@@ -276,7 +286,7 @@ export default function ManagerPage() {
                 {tab.count !== undefined && tab.count > 0 && (
                   <span className={cn(
                     'text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0',
-                    activeTab === tab.id ? 'bg-white text-purple-600' : 'bg-red-500 text-white'
+                    activeTab === tab.id ? 'bg-white text-orange-500' : 'bg-red-500 text-white'
                   )}>
                     {tab.count}
                   </span>
@@ -388,7 +398,7 @@ export default function ManagerPage() {
                         {order.items?.map(item => {
                           const removed = removedList.includes(item.id)
                           return (
-                            <div key={item.id} className={`flex items-center gap-3 text-sm transition-opacity ${removed ? 'opacity-30' : ''}`}>
+                            <div key={item.id} className={`flex items-center gap-3 text-sm transition-opacity ${removed ? 'opacity-90' : ''}`}>
                               <span className={`flex-1 ${removed ? 'line-through text-gray-300' : 'text-gray-700'}`}>
                                 {item.menu_item?.name}{item.quantity > 1 && <span className="text-orange-500 font-semibold"> ×{item.quantity}</span>}
                               </span>
@@ -403,20 +413,52 @@ export default function ManagerPage() {
                         })}
                       </div>
 
+                      {removeItemConfirm?.orderId === order.id && (
+                        <div className="mx-4 mb-2 px-3 py-2 border-t border-gray-100 flex items-center justify-between">
+                          <p className="text-sm text-gray-500 font-medium">Remove &quot;{removeItemConfirm.itemName}&quot;?</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => setRemoveItemConfirm(null)}
+                              className="text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+                              No
+                            </button>
+                            <button onClick={confirmRemoveItem}
+                              className="text-xs font-semibold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors">
+                              Yes
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {order.notes && (
                         <p className="text-xs text-amber-700 bg-amber-50 mx-4 rounded-xl px-3 py-2 mb-3 border border-amber-100">📝 {order.notes}</p>
                       )}
 
                       {/* Actions */}
-                      <div className="px-4 pb-4 pt-1 flex items-center justify-between">
-                        <Button size="sm" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
-                          <CheckCircle className="w-4 h-4 mr-1.5" /> Accept & Print
-                        </Button>
-                        <Button size="sm" variant="danger" loading={updatingId === order.id}
-                          onClick={() => { if (confirm('Cancel this order?')) updateStatus(order.id, 'cancelled') }}>
-                          <XCircle className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      {rejectConfirm === order.id ? (
+                        <div className="px-4 pb-2 pt-2 flex items-center justify-between border-t border-gray-100">
+                          <p className="text-sm text-gray-500 font-medium">Reject this order?</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => setRejectConfirm(null)}
+                              className="text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+                              No
+                            </button>
+                            <button onClick={() => { setRejectConfirm(null); updateStatus(order.id, 'cancelled') }}
+                              className="text-xs font-semibold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors">
+                              Yes, Reject
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="px-4 pb-4 pt-1 flex items-center justify-between">
+                          <Button size="sm" loading={updatingId === order.id} onClick={() => acceptOrder(order)}>
+                            <CheckCircle className="w-4 h-4 mr-1.5" /> Accept & Print
+                          </Button>
+                          <button onClick={() => setRejectConfirm(order.id)}
+                            className="text-sm font-semibold text-red-500 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                            Reject Order
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
