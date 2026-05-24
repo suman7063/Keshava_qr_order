@@ -567,7 +567,7 @@ export default function Home() {
 
   // Main bicres.com landing page
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
+    <div className="min-h-screen bg-white">
 
       {/* ── NAVIGATION ── */}
       <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
