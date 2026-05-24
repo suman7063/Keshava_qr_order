@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { MenuItem, CartItem } from '@/types'
 import { formatCurrency } from '@/lib/utils'
 import { Plus, Minus, Leaf } from 'lucide-react'
@@ -17,9 +18,15 @@ export default function MenuTemplate1({ items, cart, addToCart, removeFromCart, 
         const qty = cart.find(c => c.menu_item.id === item.id)?.quantity || 0
         return (
           <div key={item.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="w-full h-32 bg-gray-100 overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.image_url || getFoodImage(item.name)} alt={item.name} className="w-full h-full object-cover" />
+            <div className="relative w-full h-32 bg-gray-100 overflow-hidden">
+              <Image
+                src={item.image_url || getFoodImage(item.name)}
+                alt={item.name}
+                fill
+                sizes="(max-width: 500px) 50vw, 200px"
+                className="object-cover"
+                loading="lazy"
+              />
             </div>
             <div className="p-3">
               <div className="flex items-start gap-1 mb-0.5">

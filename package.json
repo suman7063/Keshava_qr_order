@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "supabase:link": "supabase link --project-ref cftyzgkwevutshbckrjm",
+    "supabase:migrate": "supabase db push",
+    "supabase:functions": "supabase functions deploy restaurant-lookup --no-verify-jwt && supabase functions deploy send-otp --no-verify-jwt",
+    "supabase:deploy": "npm run supabase:link && npm run supabase:migrate && npm run supabase:functions",
+    "supabase:reset": "supabase db reset"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

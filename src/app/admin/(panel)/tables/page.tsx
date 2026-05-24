@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { RestaurantTable, TableStatus, QRTemplate } from '@/types'
-import { TEMPLATES, getCardHTML } from '@/lib/qr-templates'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
@@ -58,6 +57,7 @@ export default function TablesPage() {
   const [savingCard, setSavingCard] = useState(false)
   const [uploadingCardImg, setUploadingCardImg] = useState(false)
   const [uploadingBgImg, setUploadingBgImg] = useState(false)
+  const [qrLib, setQrLib] = useState<typeof import('@/lib/qr-templates') | null>(null)
 
   const DEFAULT_TEXTS: Record<QRTemplate, { heading: string; subtext: string; label: string }> = {
     classic:   { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
@@ -166,6 +166,7 @@ export default function TablesPage() {
   }
 
   async function showQR(table: RestaurantTable) {
+    if (!qrLib) setQrLib(await import('@/lib/qr-templates'))
     setQrModal(table)
     setCardImage(table.card_image || DEFAULT_CARD_IMAGE)
     setCardTemplate((table.card_template as QRTemplate) || 'classic')
@@ -182,8 +183,9 @@ export default function TablesPage() {
   }
 
   function downloadQR(table: RestaurantTable) {
+    if (!qrLib) return
     const def = DEFAULT_TEXTS[cardTemplate]
-    const html = getCardHTML(cardTemplate, table.table_number, cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || def.heading, cardSubtext || def.subtext, cardLabel || def.label)
+    const html = qrLib.getCardHTML(cardTemplate, table.table_number, cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || def.heading, cardSubtext || def.subtext, cardLabel || def.label)
     const win = window.open('', '_blank', 'width=400,height=640')
     if (!win) return
     win.document.write(html)
@@ -320,7 +322,7 @@ export default function TablesPage() {
             <div className="flex items-center gap-1.5" title="Card Background">
               <Palette className="w-5 h-5 text-gray-400" />
               <input type="color"
-                value={cardBgColor || (TEMPLATES.find(x => x.id === cardTemplate)?.cardBg ?? '#ffffff')}
+                value={cardBgColor || (qrLib?.TEMPLATES.find(x => x.id === cardTemplate)?.cardBg ?? '#ffffff')}
                 onChange={e => { setCardBgColor(e.target.value); setCardBgImage('') }}
                 className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
               <label className={`cursor-pointer p-1 rounded border transition-colors ${uploadingBgImg ? 'opacity-50 cursor-wait' : ''} ${cardBgImage ? 'border-orange-400 text-orange-500' : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-400'}`} title="Use image as background">
@@ -332,7 +334,7 @@ export default function TablesPage() {
             <div className="flex items-center gap-1.5" title="Text Color">
               <Type className="w-5 h-5 text-gray-400" />
               <input type="color"
-                value={cardTextColor || (TEMPLATES.find(x => x.id === cardTemplate)?.accent ?? '#111111')}
+                value={cardTextColor || (qrLib?.TEMPLATES.find(x => x.id === cardTemplate)?.accent ?? '#111111')}
                 onChange={e => setCardTextColor(e.target.value)}
                 className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
               <button onClick={() => setCardTextColor('')} className="text-xs text-gray-400 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300">Reset</button>
@@ -346,7 +348,7 @@ export default function TablesPage() {
           <div className="shrink-0">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Template</p>
             <div className="grid grid-cols-2 gap-2">
-              {TEMPLATES.map(t => (
+              {(qrLib?.TEMPLATES ?? []).map(t => (
                 <button key={t.id} onClick={() => setCardTemplate(t.id)}
                   className={`w-24 rounded-xl border-2 py-4 flex flex-col items-center gap-2 transition-all cursor-pointer ${cardTemplate === t.id ? 'border-orange-400 shadow-sm' : 'border-gray-100 hover:border-gray-300'}`}
                   style={{ background: t.cardBg }}>
@@ -360,12 +362,12 @@ export default function TablesPage() {
           {/* Right: QR card + actions */}
           <div className="flex-1 flex flex-col items-center gap-3 overflow-y-auto">
             {(() => {
-              const t = TEMPLATES.find(x => x.id === cardTemplate) || TEMPLATES[0]
-              const activeBg = cardBgColor || t.cardBg
+              const t = qrLib?.TEMPLATES.find(x => x.id === cardTemplate) ?? qrLib?.TEMPLATES[0]
+              const activeBg = cardBgColor || t?.cardBg || '#ffffff'
               const activeBgStyle = cardBgImage
                 ? { backgroundImage: `url(${cardBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
                 : { background: activeBg }
-              const activeText = cardTextColor || t.accent
+              const activeText = cardTextColor || t?.accent || '#111111'
               const def = DEFAULT_TEXTS[cardTemplate]
               const activeHeading = cardHeading || def.heading
               const activeSubtext = cardSubtext || def.subtext

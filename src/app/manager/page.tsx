@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Order, OrderStatus } from '@/types'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
@@ -45,7 +46,7 @@ export default function ManagerPage() {
   const [managerAvatar, setManagerAvatar] = useState('')
 
   async function fetchOrders() {
-    const res = await fetch('/api/orders')
+    const res = await fetch('/api/orders?today=true')
     setOrders(await res.json())
     setLoading(false)
   }
@@ -227,8 +228,7 @@ export default function ManagerPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               {managerAvatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={managerAvatar} alt={managerName || managerEmail} className="w-9 h-9 rounded-xl object-cover shrink-0 ring-2 ring-white/20" />
+                <Image src={managerAvatar} alt={managerName || managerEmail} width={36} height={36} className="rounded-xl object-cover shrink-0 ring-2 ring-white/20" />
               ) : (
                 <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center shrink-0 text-white font-bold text-sm">
                   {(managerName || managerEmail)[0]?.toUpperCase() || <BarChart3 className="w-4 h-4" />}

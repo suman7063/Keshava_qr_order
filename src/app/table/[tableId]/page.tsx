@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { MenuItem, MenuCategory, CartItem, TableSession, Order } from '@/types'
 import { formatCurrency, cn, formatDate } from '@/lib/utils'
-import { Plus, Minus, ChevronDown, Leaf, CheckCircle, Clock, Phone, User, KeyRound, ShoppingCart, Receipt, FileText, X } from 'lucide-react'
+import { Plus, Minus, ChevronDown, CheckCircle, Clock, Phone, User, KeyRound, ShoppingCart, Receipt, FileText, X } from 'lucide-react'
 import MenuTemplate1 from '@/lib/menu-templates/template1'
 import MenuTemplate2 from '@/lib/menu-templates/template2'
 import { Button } from '@/components/ui/Button'
@@ -223,11 +223,10 @@ export default function TablePage() {
 
     checkSession()
 
-    // Poll every 30s as fallback
-    const poll = setInterval(checkSession, 30000)
-
     // Realtime — session close hone par customer ka page bhi update ho
     const supabase = createClient()
+    let poll: ReturnType<typeof setInterval> | null = null
+
     const channel = supabase
       .channel(`table-session-${tableId}`)
       .on('postgres_changes', {
@@ -246,9 +245,23 @@ export default function TablePage() {
           setShowOtpBadge(false)
         }
       })
-      .subscribe()
+      .subscribe((status) => {
+        // Realtime connected ho gaya — polling ki zaroorat nahi
+        if (status === 'SUBSCRIBED') {
+          if (poll) { clearInterval(poll); poll = null }
+        } else {
+          // Realtime fail — fallback polling shuru karo
+          if (!poll) poll = setInterval(checkSession, 30000)
+        }
+      })
 
-    return () => { supabase.removeChannel(channel); clearInterval(poll) }
+    // Initial fallback poll jab tak realtime connect na ho
+    poll = setInterval(checkSession, 30000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      if (poll) clearInterval(poll)
+    }
   }, [tableId])
 
   function getFoodImage(name: string): string {

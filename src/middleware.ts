@@ -1,10 +1,16 @@
 import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
+import { extractSubdomainFromHost } from '@/lib/restaurant'
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+  const host = request.headers.get('host') || ''
+  const subdomain = extractSubdomainFromHost(host)
+  return await updateSession(request, subdomain)
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/manager/:path*'],
+  // Run on all routes except static files
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+  ],
 }

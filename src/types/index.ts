@@ -1,3 +1,21 @@
+export type RestaurantPlan = 'free' | 'starter' | 'pro'
+export type RestaurantStatus = 'active' | 'inactive' | 'suspended'
+
+export interface Restaurant {
+  id: string
+  name: string
+  subdomain: string
+  owner_email?: string
+  phone?: string
+  address?: string
+  logo_url?: string
+  primary_color?: string
+  plan: RestaurantPlan
+  status: RestaurantStatus
+  created_at: string
+  updated_at: string
+}
+
 export type TableStatus = 'available' | 'occupied' | 'reserved'
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'cancelled'
 export type SessionStatus = 'active' | 'closed'

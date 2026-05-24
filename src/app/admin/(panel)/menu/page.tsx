@@ -9,7 +9,6 @@ import { formatCurrency } from '@/lib/utils'
 import { Plus, Pencil, Trash2, Leaf, Download } from 'lucide-react'
 import { uploadImage, deleteImage } from '@/lib/uploadImage'
 import { Toast, useToast } from '@/components/ui/Toast'
-import { PDF_TEMPLATES, getPdfHTML } from '@/lib/pdf-templates'
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([])
@@ -21,6 +20,7 @@ export default function MenuPage() {
   const [showMenuImages, setShowMenuImages] = useState(true)
   const { toast, showToast, dismissToast } = useToast()
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [pdfLib, setPdfLib] = useState<typeof import('@/lib/pdf-templates') | null>(null)
   const [pdfTemplateId, setPdfTemplateId] = useState('pdf1')
   const [pdfBgColor, setPdfBgColor] = useState('')
   const [pdfTextColor, setPdfTextColor] = useState('')
@@ -101,8 +101,14 @@ export default function MenuPage() {
     showToast(`${items.length} items exported as CSV!`)
   }
 
+  async function openPdfModal() {
+    if (!pdfLib) setPdfLib(await import('@/lib/pdf-templates'))
+    setShowPdfModal(true)
+  }
+
   function exportPDF() {
-    const html = getPdfHTML(pdfTemplateId, categories, items, RESTAURANT_NAME, {
+    if (!pdfLib) return
+    const html = pdfLib.getPdfHTML(pdfTemplateId, categories, items, RESTAURANT_NAME, {
       bgColor: pdfBgColor || undefined,
       textColor: pdfTextColor || undefined,
       subTextColor: pdfSubTextColor || undefined,
@@ -192,7 +198,7 @@ export default function MenuPage() {
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors border-r border-gray-200">
               <Download className="w-4 h-4" /> CSV
             </button>
-            <button onClick={() => setShowPdfModal(true)}
+            <button onClick={openPdfModal}
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors">
               <Download className="w-4 h-4" /> PDF
             </button>
@@ -409,9 +415,9 @@ export default function MenuPage() {
       <Modal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} title="Choose PDF Template" size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
-            {PDF_TEMPLATES.map(t => {
+            {(pdfLib?.PDF_TEMPLATES ?? []).map(t => {
               const isSelected = pdfTemplateId === t.id
-              const previewHtml = getPdfHTML(
+              const previewHtml = pdfLib!.getPdfHTML(
                 t.id,
                 categories.slice(0, 3),
                 items.slice(0, 6),
@@ -478,7 +484,7 @@ export default function MenuPage() {
                 {pdfSubTextColor && <button onClick={() => setPdfSubTextColor('')} className="text-[10px] text-gray-400 hover:text-red-400">Reset</button>}
               </div>
               {/* Hero image — only for templates with image */}
-              {PDF_TEMPLATES.find(t => t.id === pdfTemplateId)?.hasImage && (
+              {pdfLib?.PDF_TEMPLATES.find(t => t.id === pdfTemplateId)?.hasImage && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500">Hero Image</span>
                   {pdfHeroImage && (

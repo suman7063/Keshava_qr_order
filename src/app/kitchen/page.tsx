@@ -27,7 +27,7 @@ export default function KitchenPage() {
   const [updating, setUpdating] = useState<string | null>(null)
 
   async function fetchOrders() {
-    const res = await fetch('/api/orders')
+    const res = await fetch('/api/orders?today=true')
     const data = await res.json()
     // Only show active orders in kitchen
     setOrders(data.filter((o: Order) => ACTIVE_STATUSES.includes(o.status)))

@@ -32,3 +32,21 @@ button, label, input[type="color"], select {
 button:disabled {
   cursor: not-allowed !important;
 }
+
+/* Welspun-style text reveal — text rises from clip mask */
+@keyframes revealUp {
+  from { transform: translateY(110%); }
+  to   { transform: translateY(0); }
+}
+@keyframes revealFade {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(44px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

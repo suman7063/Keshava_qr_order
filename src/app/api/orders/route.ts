@@ -1,11 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { getRestaurantId } from '@/lib/restaurant'
 
 export async function GET(request: Request) {
+  const restaurantId = await getRestaurantId(request)
+  if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
+
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
   const session_id = searchParams.get('session_id')
+  const today = searchParams.get('today')
 
   let query = supabase
     .from('orders')
@@ -15,10 +20,16 @@ export async function GET(request: Request) {
       session:table_sessions(*),
       items:order_items(*, menu_item:menu_items(*))
     `)
+    .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false })
 
   if (status) query = query.eq('status', status)
   if (session_id) query = query.eq('session_id', session_id)
+  if (today === 'true') {
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    query = query.gte('created_at', start.toISOString())
+  }
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -26,6 +37,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const restaurantId = await getRestaurantId(request)
+  if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
+
   const supabase = await createClient()
   const body = await request.json()
   const { session_id, table_id, items, notes, customer_name } = body
@@ -38,13 +52,12 @@ export async function POST(request: Request) {
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .insert({ session_id, table_id, total_amount, notes, customer_name })
+    .insert({ session_id, table_id, total_amount, notes, customer_name, restaurant_id: restaurantId })
     .select()
     .single()
 
   if (orderError) return NextResponse.json({ error: orderError.message }, { status: 500 })
 
-  // Insert order items
   const orderItems = items.map((item: { menu_item_id: string; quantity: number; unit_price: number; notes?: string }) => ({
     order_id: order.id,
     menu_item_id: item.menu_item_id,
@@ -57,7 +70,6 @@ export async function POST(request: Request) {
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
   if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 })
 
-  // Return full order
   const { data: fullOrder } = await supabase
     .from('orders')
     .select(`*, table:restaurant_tables(*), session:table_sessions(*), items:order_items(*, menu_item:menu_items(*))`)
