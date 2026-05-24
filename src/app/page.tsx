@@ -580,6 +580,7 @@ export default function Home() {
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
             <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
+            <a href="#demo" className="hover:text-gray-900 transition-colors">Demo</a>
             <a href="#how-it-works" className="hover:text-gray-900 transition-colors">How it works</a>
             <a href="#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
           </div>
@@ -609,26 +610,26 @@ export default function Home() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden bg-white pt-10 pb-16 px-6 flex items-center" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <section className="relative overflow-hidden bg-white py-6 md:py-0 px-6 flex items-center" style={{ minHeight: 'calc(100vh - 64px)' }}>
         {/* Subtle background */}
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-50 rounded-full blur-[120px] opacity-50 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-50 rounded-full blur-[100px] opacity-40 pointer-events-none" />
         <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
           style={{ backgroundImage: 'radial-gradient(circle, #1e40af 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
-        <div className="relative max-w-7xl mx-auto w-full grid lg:grid-cols-2 gap-12 lg:gap-20 items-center py-4">
+        <div className="relative max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-20 items-center py-4">
 
           {/* Left: text */}
           <div>
             <div style={{ opacity: heroLoaded ? 1 : 0, transform: heroLoaded ? 'translateY(0)' : 'translateY(16px)', transition: 'all 0.7s ease 100ms' }}>
-              <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-700 text-[11px] font-bold px-4 py-2 rounded-full mb-7 uppercase tracking-widest">
+              <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-700 text-[9px] sm:text-[11px] font-bold px-3 py-2 rounded-full mb-7 uppercase tracking-wider whitespace-nowrap">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block animate-pulse" />
                 QR Ordering Platform for Restaurants
               </div>
             </div>
 
             <div style={{ opacity: heroLoaded ? 1 : 0, transform: heroLoaded ? 'translateY(0)' : 'translateY(24px)', transition: 'all 0.8s ease 250ms' }}>
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-gray-900 leading-[1.05] tracking-tight mb-6">
+              <h1 className="text-[2rem] sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-gray-900 leading-[1.1] tracking-tight mb-6">
                 Give every table<br />
                 <span className="relative">
                   <span className="text-blue-800">a digital menu</span>
@@ -669,8 +670,8 @@ export default function Home() {
 
           {/* Right: Welspun-style stacked rotating cards */}
           <div style={{ opacity: heroLoaded ? 1 : 0, transition: 'opacity 1.2s ease 600ms' }}
-            className="relative hidden lg:flex items-center justify-center py-8">
-            <div className="relative w-[380px] h-[500px]">
+            className="relative flex items-start justify-center pt-8 pb-20 lg:pt-0 lg:pb-16">
+            <div className="relative w-[300px] h-[400px] lg:w-[380px] lg:h-[500px]">
               {FEATURE_CARDS.map((card, i) => {
                 const pos = (i - frontCard + FEATURE_CARDS.length) % FEATURE_CARDS.length
                 const t = CARD_POSITIONS[pos]
@@ -692,7 +693,7 @@ export default function Home() {
             </div>
 
             {/* Dot indicators */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
               {FEATURE_CARDS.map((card, i) => (
                 <button key={i} onClick={() => setFrontCard(i)}
                   className="rounded-full transition-all duration-500"
@@ -727,7 +728,7 @@ export default function Home() {
       </section>
 
       {/* ── FEATURES ── */}
-      <section id="features" className="py-24 px-6 bg-gray-50">
+      <section id="features" className="py-14 px-6 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <Reveal>
             <div className="text-center mb-16">
@@ -759,6 +760,77 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── PRODUCT DEMO VIDEO (Welspun style) ── */}
+      <section id="demo" className="bg-white overflow-hidden py-10">
+        <div className="max-w-7xl mx-auto px-6 lg:px-16">
+
+          {/* Tag */}
+          <Reveal>
+            <p className="text-blue-800 text-xs font-bold uppercase tracking-widest mb-5 flex items-center gap-2">
+              <span className="font-black">✦</span> Product Demo
+            </p>
+          </Reveal>
+
+          {/* Two column layout */}
+          <div className="grid lg:grid-cols-[42%_58%] gap-0 items-start">
+
+            {/* LEFT: heading + dark card */}
+            <div className="flex flex-col">
+              <Reveal delay={100}>
+                <h2 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight mb-12">
+                  See bicres<br />in action
+                </h2>
+              </Reveal>
+
+              {/* Dark card overlaps video (negative right margin on desktop) */}
+              <Reveal delay={200}>
+                <div className="bg-[#1e2d4a] text-white p-8 lg:p-10 rounded-2xl lg:rounded-r-none relative z-10 shadow-2xl flex flex-col gap-6">
+                  <p className="text-white/65 text-sm leading-relaxed">
+                    Watch how a restaurant goes from zero to a fully live digital menu — QR codes, kitchen display, manager dashboard — in under 2 minutes.
+                  </p>
+                  <div className="space-y-3">
+                    {[
+                      'Setup menu with photos & prices',
+                      'Generate QR codes per table',
+                      'Customers scan & order instantly',
+                      'Kitchen notified in real time',
+                    ].map((t, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="text-blue-300 font-black text-[11px] w-5 shrink-0">0{i + 1}</span>
+                        <p className="text-white/80 text-sm">{t}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-4 border-t border-white/10 pt-5 mt-2">
+                    <div className="w-9 h-9 border border-white/25 flex items-center justify-center shrink-0">
+                      <ArrowRight className="w-4 h-4 text-white" />
+                    </div>
+                    <a href="/onboard" className="text-white text-xs font-bold uppercase tracking-widest hover:text-blue-300 transition-colors">
+                      Get Started Free
+                    </a>
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+
+            {/* RIGHT: video */}
+            <Reveal delay={120} className="h-full">
+              <div className="relative w-full rounded-2xl lg:rounded-l-none overflow-hidden shadow-2xl" style={{ aspectRatio: '16/9' }}>
+                {/* Replace dQw4w9WgXcQ with your YouTube video ID */}
+                <iframe
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                  title="bicres product demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 w-full h-full"
+                />
+              </div>
+            </Reveal>
+
+          </div>
+        </div>
+      </section>
+
       {/* ── IMAGE BREAK ── */}
       <section className="relative h-64 md:h-80 overflow-hidden">
         <Image
@@ -775,7 +847,7 @@ export default function Home() {
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section id="how-it-works" className="py-24 px-6 bg-white">
+      <section id="how-it-works" className="py-14 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <Reveal>
             <div className="text-center mb-16">
@@ -802,7 +874,7 @@ export default function Home() {
       </section>
 
       {/* ── PRICING ── */}
-      <section id="pricing" className="py-24 px-6 bg-gray-50">
+      <section id="pricing" className="py-14 px-6 bg-gray-50">
         <div className="max-w-5xl mx-auto">
           <Reveal>
             <div className="text-center mb-16">
@@ -844,7 +916,7 @@ export default function Home() {
       </section>
 
       {/* ── FINAL CTA ── */}
-      <section className="py-24 px-6 bg-white">
+      <section className="py-14 px-6 bg-white">
         <div className="max-w-3xl mx-auto text-center">
           <Reveal>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Ready to go digital?</h2>
