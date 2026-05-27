@@ -206,8 +206,8 @@ const FEATURES = [
   {
     icon: UtensilsCrossed,
     tag: 'Branding',
-    title: 'Your Own Subdomain',
-    desc: 'Get yourname.bicres.com — a branded URL for all QR codes, posters, and digital menu sharing.',
+    title: 'Your Own URL',
+    desc: 'Get bicres.com/yourname — a branded URL for all QR codes, posters, and digital menu sharing.',
   },
 ]
 
@@ -705,7 +705,7 @@ export default function HomeClient({ restaurant }: HomeClientProps) {
 
             <div style={{ opacity: heroLoaded ? 1 : 0, transition: 'opacity 0.8s ease 680ms' }}
               className="flex flex-wrap gap-2 sm:gap-5 text-base sm:text-sm text-gray-400">
-              {['No app needed', 'Ready in 2 min', 'Free to start', 'Your own subdomain'].map(t => (
+              {['No app needed', 'Ready in 2 min', 'Free to start', 'Your own URL'].map(t => (
                 <span key={t} className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> {t}
                 </span>
