@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 // GET /api/restaurants — list all (super admin only)
@@ -15,7 +16,7 @@ export async function GET() {
 
 // POST /api/restaurants — onboard a new restaurant
 export async function POST(request: Request) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const body = await request.json()
   const { name, subdomain, owner_email, phone, plan = 'free' } = body
 
