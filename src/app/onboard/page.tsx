@@ -2,7 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { QrCode, ArrowRight, CheckCircle2, AlertCircle, Loader2, Store, Globe, Mail, Phone, ChevronRight } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import {
+  QrCode, ArrowRight, CheckCircle2, AlertCircle, Loader2,
+  Store, Globe, Mail, Phone, ChevronRight, Lock, Eye, EyeOff, RefreshCw
+} from 'lucide-react'
 
 type Plan = 'free' | 'pro'
 
@@ -12,6 +16,8 @@ interface FormData {
   owner_email: string
   phone: string
   plan: Plan
+  password: string
+  confirmPassword: string
 }
 
 const PLANS: { id: Plan; label: string; price: string; perks: string[] }[] = [
@@ -40,28 +46,25 @@ function toSlug(value: string) {
 
 export default function OnboardPage() {
   const [form, setForm] = useState<FormData>({
-    name: '',
-    subdomain: '',
-    owner_email: '',
-    phone: '',
-    plan: 'free',
+    name: '', subdomain: '', owner_email: '', phone: '',
+    plan: 'free', password: '', confirmPassword: '',
   })
   const [subdomainTouched, setSubdomainTouched] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState<{ subdomain: string } | null>(null)
+  const [success, setSuccess] = useState<{ email: string; subdomain: string } | null>(null)
+  const [resendMsg, setResendMsg] = useState('')
 
   const subdomainValid = /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/.test(form.subdomain) || /^[a-z0-9]{2,32}$/.test(form.subdomain)
   const subdomainError = subdomainTouched && form.subdomain.length > 0 && !subdomainValid
     ? 'Only lowercase letters, numbers, and hyphens. Min 2 characters.'
     : ''
+  const passwordMismatch = form.confirmPassword.length > 0 && form.password !== form.confirmPassword
 
   function handleNameChange(value: string) {
-    setForm(f => ({
-      ...f,
-      name: value,
-      subdomain: subdomainTouched ? f.subdomain : toSlug(value),
-    }))
+    setForm(f => ({ ...f, name: value, subdomain: subdomainTouched ? f.subdomain : toSlug(value) }))
   }
 
   function handleSubdomainChange(value: string) {
@@ -71,60 +74,123 @@ export default function OnboardPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!subdomainValid) return
+    if (!subdomainValid || passwordMismatch) return
+    if (form.password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+
     setLoading(true)
     setError('')
-    try {
-      const res = await fetch('/api/restaurants', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Something went wrong. Please try again.')
-        return
-      }
-      setSuccess({ subdomain: form.subdomain })
-    } catch {
-      setError('Network error. Please check your connection.')
-    } finally {
+
+    const supabase = createClient()
+
+    // 1. Create auth user → sends verification email automatically
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: form.owner_email,
+      password: form.password,
+      options: { emailRedirectTo: `${window.location.origin}/admin/login` },
+    })
+
+    if (authError) {
+      setError(authError.message)
       setLoading(false)
+      return
     }
+
+    // 2. Create restaurant entry
+    const res = await fetch('/api/restaurants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: form.name,
+        subdomain: form.subdomain,
+        owner_email: form.owner_email,
+        phone: form.phone,
+        plan: form.plan,
+        user_id: authData.user?.id,
+      }),
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      // Cleanup: sign out the created user if restaurant creation fails
+      await supabase.auth.signOut()
+      setError(data.error || 'Something went wrong. Please try again.')
+      setLoading(false)
+      return
+    }
+
+    setSuccess({ email: form.owner_email, subdomain: form.subdomain })
+    setLoading(false)
   }
 
+  async function handleResend() {
+    setResending(true)
+    setResendMsg('')
+    const supabase = createClient()
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: success!.email,
+      options: { emailRedirectTo: `${window.location.origin}/admin/login` },
+    })
+    setResendMsg(error ? 'Could not resend. Try again.' : 'Verification email sent!')
+    setResending(false)
+  }
+
+  // ── Email verification pending screen ─────────────────────────────
   if (success) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6 py-12">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-xl p-10 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="w-8 h-8 text-green-500" />
+          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Mail className="w-8 h-8 text-blue-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">You're all set!</h2>
-          <p className="text-gray-500 mb-6">Your restaurant has been registered. Your menu is live at:</p>
-          <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 mb-8 font-mono text-blue-800 font-semibold text-sm">
-            bicres.com/{success.subdomain}
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Verify your email</h2>
+          <p className="text-gray-500 mb-2">We sent a verification link to:</p>
+          <p className="font-semibold text-gray-900 mb-6">{success.email}</p>
+
+          <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 mb-6 text-sm text-blue-700">
+            Click the link in the email to activate your account, then login.
           </div>
-          <div className="flex flex-col gap-3">
-            <Link
-              href="/admin/login"
-              className="flex items-center justify-center gap-2 bg-blue-800 text-white font-semibold py-3 rounded-xl hover:bg-blue-900 transition-colors"
-            >
-              Go to Admin Panel <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link href="/" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
-              Back to home
-            </Link>
+
+          <div className="bg-gray-50 rounded-xl px-5 py-3 mb-6 text-sm text-gray-600">
+            Your menu URL: <span className="font-semibold text-blue-800">bicres.com/{success.subdomain}</span>
           </div>
+
+          {resendMsg && (
+            <p className={`text-sm mb-3 ${resendMsg.includes('sent') ? 'text-green-600' : 'text-red-500'}`}>
+              {resendMsg}
+            </p>
+          )}
+
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="flex items-center justify-center gap-2 w-full border border-gray-200 text-gray-600 font-medium py-3 rounded-xl hover:bg-gray-50 transition-colors mb-3 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${resending ? 'animate-spin' : ''}`} />
+            {resending ? 'Sending…' : 'Resend verification email'}
+          </button>
+
+          <Link
+            href="/admin/login"
+            className="flex items-center justify-center gap-2 bg-blue-800 text-white font-semibold py-3 rounded-xl hover:bg-blue-900 transition-colors"
+          >
+            Go to Login <ArrowRight className="w-4 h-4" />
+          </Link>
+
+          <Link href="/" className="block mt-4 text-sm text-gray-400 hover:text-gray-600">
+            Back to home
+          </Link>
         </div>
       </div>
     )
   }
 
+  // ── Registration form ──────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50">
-
-      {/* Top bar */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -135,16 +201,12 @@ export default function OnboardPage() {
           </Link>
           <span className="text-sm text-gray-400">
             Already have an account?{' '}
-            <Link href="/admin/login" className="text-blue-800 font-semibold hover:underline">
-              Login
-            </Link>
+            <Link href="/admin/login" className="text-blue-800 font-semibold hover:underline">Login</Link>
           </span>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-6 py-12">
-
-        {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Register your restaurant</h1>
           <p className="text-gray-500">Set up your digital menu in under 2 minutes</p>
@@ -155,26 +217,20 @@ export default function OnboardPage() {
           {/* Restaurant Info */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-5">
             <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Store className="w-4 h-4 text-blue-800" />
-              Restaurant details
+              <Store className="w-4 h-4 text-blue-800" /> Restaurant details
             </h2>
 
-            {/* Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Restaurant name <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
-                required
-                placeholder="e.g. Zara Restaurant"
-                value={form.name}
-                onChange={e => handleNameChange(e.target.value)}
+                type="text" required placeholder="e.g. Zara Restaurant"
+                value={form.name} onChange={e => handleNameChange(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition"
               />
             </div>
 
-            {/* URL slug */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Your URL <span className="text-red-500">*</span>
@@ -184,11 +240,8 @@ export default function OnboardPage() {
                   bicres.com/
                 </span>
                 <input
-                  type="text"
-                  required
-                  placeholder="zara"
-                  value={form.subdomain}
-                  onChange={e => handleSubdomainChange(e.target.value)}
+                  type="text" required placeholder="zara"
+                  value={form.subdomain} onChange={e => handleSubdomainChange(e.target.value)}
                   className="flex-1 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none bg-white"
                 />
               </div>
@@ -208,20 +261,14 @@ export default function OnboardPage() {
           {/* Contact Info */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-5">
             <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-blue-800" />
-              Contact details
+              <Mail className="w-4 h-4 text-blue-800" /> Contact details
             </h2>
-
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Email address
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email address <span className="text-red-500">*</span></label>
                 <input
-                  type="email"
-                  placeholder="owner@restaurant.com"
-                  value={form.owner_email}
-                  onChange={e => setForm(f => ({ ...f, owner_email: e.target.value }))}
+                  type="email" required placeholder="owner@restaurant.com"
+                  value={form.owner_email} onChange={e => setForm(f => ({ ...f, owner_email: e.target.value }))}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition"
                 />
               </div>
@@ -230,12 +277,47 @@ export default function OnboardPage() {
                   <Phone className="w-3 h-3" /> Phone number
                 </label>
                 <input
-                  type="tel"
-                  placeholder="9876543210"
-                  value={form.phone}
-                  onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  type="tel" placeholder="9876543210"
+                  value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-5">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-blue-800" /> Set password
+            </h2>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Password <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'} required
+                    placeholder="Min 8 characters"
+                    value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition"
+                  />
+                  <button type="button" onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm password <span className="text-red-500">*</span></label>
+                <input
+                  type="password" required placeholder="Re-enter password"
+                  value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                  className={`w-full border rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition ${passwordMismatch ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}
+                />
+                {passwordMismatch && (
+                  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> Passwords do not match
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -245,27 +327,16 @@ export default function OnboardPage() {
             <h2 className="font-semibold text-gray-900">Choose a plan</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {PLANS.map(p => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, plan: p.id }))}
-                  className={`text-left rounded-xl border-2 p-4 transition-all ${
-                    form.plan === p.id
-                      ? 'border-blue-800 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
+                <button key={p.id} type="button" onClick={() => setForm(f => ({ ...f, plan: p.id }))}
+                  className={`text-left rounded-xl border-2 p-4 transition-all ${form.plan === p.id ? 'border-blue-800 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-gray-900">{p.label}</span>
-                    <span className={`text-sm font-bold ${form.plan === p.id ? 'text-blue-800' : 'text-gray-500'}`}>
-                      {p.price}
-                    </span>
+                    <span className={`text-sm font-bold ${form.plan === p.id ? 'text-blue-800' : 'text-gray-500'}`}>{p.price}</span>
                   </div>
                   <ul className="space-y-1">
                     {p.perks.map(perk => (
                       <li key={perk} className="flex items-center gap-1.5 text-xs text-gray-500">
-                        <ChevronRight className="w-3 h-3 text-blue-800 flex-shrink-0" />
-                        {perk}
+                        <ChevronRight className="w-3 h-3 text-blue-800 flex-shrink-0" /> {perk}
                       </li>
                     ))}
                   </ul>
@@ -274,28 +345,21 @@ export default function OnboardPage() {
             </div>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="flex items-center gap-2 bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl px-4 py-3">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error}
+              <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
             </div>
           )}
 
-          {/* Submit */}
           <button
             type="submit"
-            disabled={loading || !form.name || !form.subdomain || !!subdomainError}
+            disabled={loading || !form.name || !form.subdomain || !form.owner_email || !form.password || !!subdomainError || passwordMismatch}
             className="w-full flex items-center justify-center gap-2 bg-blue-800 text-white font-semibold py-4 rounded-xl text-base hover:bg-blue-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-100"
           >
             {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" /> Setting up your restaurant…
-              </>
+              <><Loader2 className="w-5 h-5 animate-spin" /> Setting up your restaurant…</>
             ) : (
-              <>
-                Register Restaurant <ArrowRight className="w-5 h-5" />
-              </>
+              <><CheckCircle2 className="w-5 h-5" /> Register Restaurant</>
             )}
           </button>
 
