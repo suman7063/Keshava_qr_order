@@ -103,7 +103,7 @@ export default function OnboardPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">You're all set!</h2>
           <p className="text-gray-500 mb-6">Your restaurant has been registered. Your menu is live at:</p>
           <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 mb-8 font-mono text-blue-800 font-semibold text-sm">
-            {success.subdomain}.bicres.com
+            bicres.com/{success.subdomain}
           </div>
           <div className="flex flex-col gap-3">
             <Link
@@ -174,12 +174,15 @@ export default function OnboardPage() {
               />
             </div>
 
-            {/* Subdomain */}
+            {/* URL slug */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Your subdomain <span className="text-red-500">*</span>
+                Your URL <span className="text-red-500">*</span>
               </label>
               <div className="flex rounded-xl overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-blue-800 focus-within:border-transparent transition">
+                <span className="bg-gray-50 border-r border-gray-200 px-4 py-3 text-sm text-gray-500 font-medium select-none">
+                  bicres.com/
+                </span>
                 <input
                   type="text"
                   required
@@ -188,9 +191,6 @@ export default function OnboardPage() {
                   onChange={e => handleSubdomainChange(e.target.value)}
                   className="flex-1 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none bg-white"
                 />
-                <span className="bg-gray-50 border-l border-gray-200 px-4 py-3 text-sm text-gray-500 font-medium select-none">
-                  .bicres.com
-                </span>
               </div>
               {subdomainError ? (
                 <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
@@ -199,7 +199,7 @@ export default function OnboardPage() {
               ) : form.subdomain ? (
                 <p className="mt-1.5 text-xs text-blue-600 flex items-center gap-1">
                   <Globe className="w-3 h-3" />
-                  Your menu: <span className="font-semibold">{form.subdomain}.bicres.com</span>
+                  Your menu: <span className="font-semibold">bicres.com/{form.subdomain}</span>
                 </p>
               ) : null}
             </div>
