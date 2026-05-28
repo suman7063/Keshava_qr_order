@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify your email — bicres</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+
+  <!-- Wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+
+          <!-- Logo bar -->
+          <tr>
+            <td align="center" style="padding-bottom:28px;">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:#1e3a8a;border-radius:12px;padding:10px 14px;vertical-align:middle;">
+                    <span style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:-0.5px;">bicres</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td style="background:#ffffff;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,0.08);overflow:hidden;">
+
+              <!-- Top accent bar -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:linear-gradient(90deg,#1e3a8a 0%,#2563eb 100%);height:5px;font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+
+              <!-- Body -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:40px 40px 32px;">
+
+                    <!-- Icon -->
+                    <table cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                      <tr>
+                        <td style="background:#eff6ff;border-radius:50%;width:56px;height:56px;text-align:center;vertical-align:middle;">
+                          <span style="font-size:26px;line-height:56px;">✉️</span>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Heading -->
+                    <p style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">
+                      Hi, {{ .Data.name }} 👋
+                    </p>
+                    <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">{{ .Email }}</p>
+                    <p style="margin:0 0 28px;margin-top:12px;font-size:15px;color:#64748b;line-height:1.6;">
+                      Welcome to <strong style="color:#1e3a8a;">bicres</strong> — your restaurant's digital menu platform. Click the button below to confirm your email and activate your account.
+                    </p>
+
+                    <!-- CTA Button -->
+                    <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                      <tr>
+                        <td style="background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%);border-radius:12px;">
+                          <a href="{{ .ConfirmationURL }}"
+                            style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;letter-spacing:0.2px;">
+                            ✓ &nbsp;Confirm my email
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Divider -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                      <tr>
+                        <td style="border-top:1px solid #e2e8f0;font-size:0;">&nbsp;</td>
+                      </tr>
+                    </table>
+
+                    <!-- Info boxes -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                      <tr>
+                        <td style="background:#f8fafc;border-radius:10px;padding:14px 16px;border-left:3px solid #2563eb;">
+                          <p style="margin:0;font-size:12px;color:#64748b;line-height:1.5;">
+                            🔒 &nbsp;This link expires in <strong>24 hours</strong>. If you did not create an account on bicres, you can safely ignore this email.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Alt link -->
+                    <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6;">
+                      Button not working? Copy and paste this link in your browser:<br/>
+                      <a href="{{ .ConfirmationURL }}" style="color:#2563eb;word-break:break-all;font-size:11px;">
+                        {{ .ConfirmationURL }}
+                      </a>
+                    </p>
+
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:24px 16px 8px;">
+              <p style="margin:0 0 6px;font-size:12px;color:#94a3b8;">
+                Sent by <strong style="color:#64748b;">bicres.com</strong> — QR Ordering Platform
+              </p>
+              <p style="margin:0;font-size:11px;color:#cbd5e1;">
+                © 2026 bicres.com · All rights reserved
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

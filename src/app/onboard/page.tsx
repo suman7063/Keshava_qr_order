@@ -89,7 +89,10 @@ export default function OnboardPage() {
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: form.owner_email,
       password: form.password,
-      options: { emailRedirectTo: `${window.location.origin}/admin/login` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/admin/login`,
+        data: { name: form.name },
+      },
     })
 
     if (authError) {
