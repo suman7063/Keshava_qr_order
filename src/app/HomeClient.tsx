@@ -617,17 +617,15 @@ export default function HomeClient({ restaurant }: HomeClientProps) {
       {/* ── NAVIGATION ── */}
       <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 bg-blue-800 rounded-lg flex items-center justify-center">
-              <QrCode className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-gray-900 text-lg tracking-tight">bicres</span>
+          <Link href="/" className="flex items-center shrink-0">
+            <Image src="/bicres-logo.png" alt="bicres" width={160} height={48} className="h-12 md:h-16 w-auto" />
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
             <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
             <a href="#demo" className="hover:text-gray-900 transition-colors">Demo</a>
             <a href="#how-it-works" className="hover:text-gray-900 transition-colors">How it works</a>
             <a href="#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
+            <Link href="/contact" className="hover:text-gray-900 transition-colors">Contact</Link>
           </div>
           <div className="hidden md:flex items-center gap-3">
             <Link href="/onboard"
@@ -647,6 +645,10 @@ export default function HomeClient({ restaurant }: HomeClientProps) {
                 {href.slice(1).replace('-', ' ')}
               </a>
             ))}
+            <Link href="/contact" onClick={() => setMobileOpen(false)}
+              className="block text-gray-600 text-sm hover:text-gray-900 py-1">
+              Contact
+            </Link>
             <Link href="/onboard" className="block bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg text-center">
               Get Started →
             </Link>
@@ -1096,21 +1098,36 @@ export default function HomeClient({ restaurant }: HomeClientProps) {
 
       {/* ── FOOTER ── */}
       <footer className="bg-gray-900 text-gray-500 py-12 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
-              <QrCode className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-white font-bold text-lg tracking-tight">bicres</span>
+        <div className="max-w-6xl mx-auto flex flex-col items-center gap-6 md:flex-row md:justify-between">
+          <div className="flex items-center">
+            <Image src="/bicres-logo.png" alt="bicres" width={120} height={36} className="h-9 w-12 w-auto brightness-0 invert" />
           </div>
-          <div className="flex gap-8 text-sm">
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+            <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
           </div>
-          <p className="text-sm text-gray-600">© 2026 bicres.com · All rights reserved</p>
+          <p className="text-sm text-gray-600 text-center">© 2026 bicres.com · All rights reserved</p>
         </div>
       </footer>
+
+      {/* ── WHATSAPP FLOATING BUTTON ── */}
+      <a
+        href="https://wa.me/916362130218?text=Hi%2C%20I%27m%20interested%20in%20bicres%20QR%20ordering%20for%20my%20restaurant"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Chat on WhatsApp"
+        className="fixed bottom-2  right-2 sm:bottom-6 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-200"
+        style={{ background: '#25D366' }}
+      >
+        <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.855L.057 23.882a.5.5 0 00.61.61l6.044-1.47A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.808 9.808 0 01-5.006-1.373l-.36-.214-3.724.906.924-3.61-.235-.372A9.808 9.808 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/>
+        </svg>
+      </a>
 
     </div>
   )
