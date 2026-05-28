@@ -39,7 +39,7 @@ const jsonLd = {
       '@type': 'Organization',
       name: 'bicres',
       url: 'https://bicres.com',
-      logo: 'https://bicres.com/logo.png',
+      logo: 'https://bicres.com/bicres-logo.png',
       sameAs: [],
     },
     {

@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin/', '/superadmin/', '/api/', '/kitchen/', '/manager/'],
+        disallow: ['/admin/', '/superadmin/', '/api/', '/kitchen/', '/manager/', '/table/'],
       },
     ],
     sitemap: 'https://bicres.com/sitemap.xml',
