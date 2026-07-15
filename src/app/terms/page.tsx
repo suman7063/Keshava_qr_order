@@ -50,7 +50,7 @@ export default function TermsPage() {
 
             <section>
               <h2 className="text-lg font-bold text-gray-900 mb-3">4. Plans & Payment</h2>
-              <p>bicres offers a free Starter plan and a paid Pro plan (₹999/month). Paid plans are billed monthly. You may cancel at any time. No refunds are provided for the current billing period. We reserve the right to change pricing with 30 days' notice.</p>
+              <p>bicres offers a free Starter plan and a paid Pro plan (₹499/month). Paid plans are billed monthly. You may cancel at any time. No refunds are provided for the current billing period. We reserve the right to change pricing with 30 days' notice.</p>
             </section>
 
             <section>

@@ -58,7 +58,7 @@ const jsonLd = {
           name: 'Is bicres free to use?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Yes, bicres offers a free Starter plan that includes up to 10 tables, a digital QR menu, and QR code downloads. The Pro plan at ₹999/month includes unlimited tables, kitchen display, manager dashboard, and PDF menu export.',
+            text: 'Yes, bicres offers a free Starter plan that includes up to 10 tables, a digital QR menu, and QR code downloads. The Pro plan at ₹499/month includes unlimited tables, kitchen display, manager dashboard, and PDF menu export.',
           },
         },
         {

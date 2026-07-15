@@ -1,4 +1,4 @@
-export type RestaurantPlan = 'free' | 'starter' | 'pro'
+export type RestaurantPlan = 'free' | 'pro' | 'enterprise'
 export type RestaurantStatus = 'active' | 'inactive' | 'suspended'
 
 export interface Restaurant {
@@ -11,6 +11,7 @@ export interface Restaurant {
   logo_url?: string
   primary_color?: string
   plan: RestaurantPlan
+  trial_ends_at?: string | null
   status: RestaurantStatus
   created_at: string
   updated_at: string

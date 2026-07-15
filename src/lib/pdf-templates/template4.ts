@@ -73,7 +73,6 @@ export function getPdf4HTML(categories: MenuCategory[], items: MenuItem[], resta
       <div class="deco" style="bottom:80px;left:10px;transform:rotate(-10deg)">🍔</div>
       <div class="rest-name">${restaurantName}</div>
       <div class="rest-sub">Restaurant</div>
-      <div class="contact">📞 +91-XXXXXXXXXX &nbsp;·&nbsp; 🌐 www.qrkitchen.com</div>
       ${grouped.map(({ cat, items: ci }) => `
         <div class="category">
           <div class="cat-title">${cat.name}</div>

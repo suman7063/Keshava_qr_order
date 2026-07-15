@@ -1,16 +1,14 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { getRestaurantId } from '@/lib/restaurant'
+import { requireStaff } from '@/lib/auth'
 
 export async function GET(request: Request) {
-  const restaurantId = await getRestaurantId(request)
-  if (!restaurantId) return NextResponse.json([])
+  const ctx = await requireStaff(request)
+  if (ctx instanceof NextResponse) return ctx
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
+  const { data, error } = await ctx.db
     .from('table_sessions')
     .select('*, table:restaurant_tables(*)')
-    .eq('restaurant_id', restaurantId)
+    .eq('restaurant_id', ctx.restaurantId)
     .order('started_at', { ascending: false })
     .limit(50)
 

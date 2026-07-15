@@ -1,26 +1,42 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requireSuperadmin, auditLog } from '@/lib/auth'
 
-// PATCH /api/restaurants/[id] — update status or plan
+// PATCH /api/restaurants/[id] — superadmin: update status, plan or name
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
-  const supabase = await createClient()
-  const body = await request.json()
+  const ctx = await requireSuperadmin()
+  if (ctx instanceof NextResponse) return ctx
 
-  const allowed = ['status', 'plan', 'name']
-  const updates: Record<string, string> = {}
-  for (const key of allowed) {
-    if (key in body) updates[key] = body[key]
+  const { id } = await params
+  let body: Record<string, string>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
+
+  const updates: Record<string, string> = {}
+  if ('status' in body) {
+    if (!['active', 'inactive', 'suspended'].includes(body.status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+    }
+    updates.status = body.status
+  }
+  if ('plan' in body) {
+    if (!['free', 'pro', 'enterprise'].includes(body.plan)) {
+      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
+    }
+    updates.plan = body.plan
+  }
+  if ('name' in body && body.name?.trim()) updates.name = body.name.trim().slice(0, 200)
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.db
     .from('restaurants')
     .update(updates)
     .eq('id', id)
@@ -28,18 +44,37 @@ export async function PATCH(
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await auditLog({
+    restaurant_id: id,
+    actor_id: ctx.user.id,
+    action: 'restaurant.updated',
+    entity: 'restaurant',
+    entity_id: id,
+    details: updates,
+  })
+
   return NextResponse.json(data)
 }
 
-// DELETE /api/restaurants/[id]
+// DELETE /api/restaurants/[id] — superadmin only
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
-  const supabase = await createClient()
+  const ctx = await requireSuperadmin()
+  if (ctx instanceof NextResponse) return ctx
 
-  const { error } = await supabase.from('restaurants').delete().eq('id', id)
+  const { id } = await params
+  const { error } = await ctx.db.from('restaurants').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await auditLog({
+    actor_id: ctx.user.id,
+    action: 'restaurant.deleted',
+    entity: 'restaurant',
+    entity_id: id,
+  })
+
   return NextResponse.json({ success: true })
 }

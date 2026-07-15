@@ -8,10 +8,9 @@ interface Props {
   cart: CartItem[]
   addToCart: (item: MenuItem) => void
   removeFromCart: (itemId: string) => void
-  getFoodImage: (name: string) => string
 }
 
-export default function MenuTemplate1({ items, cart, addToCart, removeFromCart, getFoodImage }: Props) {
+export default function MenuTemplate1({ items, cart, addToCart, removeFromCart }: Props) {
   return (
     <div className="max-w-lg mx-auto px-3 mt-3 grid grid-cols-2 gap-3">
       {items.map(item => {
@@ -19,14 +18,20 @@ export default function MenuTemplate1({ items, cart, addToCart, removeFromCart, 
         return (
           <div key={item.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <div className="relative w-full h-32 bg-gray-100 overflow-hidden">
-              <Image
-                src={item.image_url || getFoodImage(item.name)}
-                alt={item.name}
-                fill
-                sizes="(max-width: 500px) 50vw, 200px"
-                className="object-cover"
-                loading="lazy"
-              />
+              {item.image_url ? (
+                <Image
+                  src={item.image_url}
+                  alt={item.name}
+                  fill
+                  sizes="(max-width: 500px) 50vw, 200px"
+                  className="object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-50 text-4xl select-none">
+                  🍽
+                </div>
+              )}
             </div>
             <div className="p-3">
               <div className="flex items-start gap-1 mb-0.5">

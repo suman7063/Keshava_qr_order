@@ -1,7 +1,16 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 import HomeClient from '../HomeClient'
+
+// ISR: regenerate at most every 5 minutes; restaurant profiles change rarely.
+export const revalidate = 300
+
+// No paths are prebuilt — each restaurant page is generated on first
+// visit, then served statically and refreshed per `revalidate`.
+export async function generateStaticParams() {
+  return []
+}
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -9,7 +18,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data } = await supabase
     .from('restaurants')
     .select('name, subdomain, phone')
@@ -49,7 +58,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function RestaurantPage({ params }: Props) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data } = await supabase
     .from('restaurants')
     .select('id, name, subdomain, phone, status')

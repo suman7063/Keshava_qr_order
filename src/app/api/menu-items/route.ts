@@ -1,13 +1,17 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getRestaurantId } from '@/lib/restaurant'
+import { requireStaff } from '@/lib/auth'
+import { effectivePlan } from '@/lib/plans'
+import { ITEM_FIELDS } from '@/lib/validation'
 
+// Public: customers browse the menu.
 export async function GET(request: Request) {
   const restaurantId = await getRestaurantId(request)
   if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
+  const db = createAdminClient()
+  const { data, error } = await db
     .from('menu_items')
     .select('*, category:menu_categories(*)')
     .eq('restaurant_id', restaurantId)
@@ -20,15 +24,57 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const restaurantId = await getRestaurantId(request)
-  if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
+  const ctx = await requireStaff(request, { adminOnly: true })
+  if (ctx instanceof NextResponse) return ctx
 
-  const supabase = await createClient()
-  const body = await request.json()
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
 
-  const { data, error } = await supabase
+  const insert: Record<string, unknown> = {}
+  for (const key of ITEM_FIELDS) {
+    if (key in body) insert[key] = body[key]
+  }
+  if (!insert.name || !insert.category_id || insert.price === undefined) {
+    return NextResponse.json({ error: 'name, category_id and price are required' }, { status: 400 })
+  }
+  if (Number(insert.price) < 0 || Number.isNaN(Number(insert.price))) {
+    return NextResponse.json({ error: 'Invalid price' }, { status: 400 })
+  }
+
+  // The category must belong to this restaurant.
+  const { data: category } = await ctx.db
+    .from('menu_categories')
+    .select('id')
+    .eq('id', insert.category_id as string)
+    .eq('restaurant_id', ctx.restaurantId)
+    .single()
+  if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 400 })
+
+  // Plan limit enforcement
+  const { data: restaurant } = await ctx.db
+    .from('restaurants')
+    .select('plan, trial_ends_at')
+    .eq('id', ctx.restaurantId)
+    .single()
+  const plan = effectivePlan(restaurant ?? { plan: 'free', trial_ends_at: null })
+  const { count } = await ctx.db
     .from('menu_items')
-    .insert({ ...body, restaurant_id: restaurantId })
+    .select('id', { count: 'exact', head: true })
+    .eq('restaurant_id', ctx.restaurantId)
+  if ((count ?? 0) >= plan.maxMenuItems) {
+    return NextResponse.json(
+      { error: `Your ${plan.label} plan allows up to ${plan.maxMenuItems} menu items. Upgrade to add more.` },
+      { status: 403 }
+    )
+  }
+
+  const { data, error } = await ctx.db
+    .from('menu_items')
+    .insert({ ...insert, restaurant_id: ctx.restaurantId })
     .select('*, category:menu_categories(*)')
     .single()
 

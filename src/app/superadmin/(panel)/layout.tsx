@@ -12,12 +12,14 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
+    // Real enforcement lives in the middleware; this is just a fast client
+    // redirect for a nicer UX.
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace('/superadmin/login'); return }
       const { data } = await supabase
-        .from('user_roles').select('role').eq('user_id', user.id).single()
-      if (data?.role !== 'superadmin') {
+        .from('user_roles').select('role').eq('user_id', user.id)
+      if (!(data || []).some(r => r.role === 'superadmin')) {
         router.replace('/superadmin/login?error=unauthorized')
         return
       }

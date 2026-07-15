@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
@@ -44,10 +44,39 @@ export default function ManagerPage() {
   const [removeItemConfirm, setRemoveItemConfirm] = useState<{ orderId: string; itemId: string; itemName: string } | null>(null)
   const [managerName, setManagerName] = useState('')
   const [managerAvatar, setManagerAvatar] = useState('')
+  const [restaurantName, setRestaurantName] = useState('')
+  const pendingCountRef = useRef(0)
+
+  // Short beep so staff notice new orders without watching the screen
+  function playNewOrderSound() {
+    try {
+      type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext }
+      const AudioCtx = window.AudioContext || (window as AudioWindow).webkitAudioContext
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 880
+      gain.gain.setValueAtTime(0.15, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.6)
+    } catch {
+      // audio blocked — ignore
+    }
+  }
 
   async function fetchOrders() {
     const res = await fetch('/api/orders?today=true')
-    setOrders(await res.json())
+    if (!res.ok) { setLoading(false); return }
+    const data = await res.json()
+    const list: Order[] = Array.isArray(data) ? data : []
+    const pendingCount = list.filter(o => o.status === 'pending').length
+    if (pendingCount > pendingCountRef.current) playNewOrderSound()
+    pendingCountRef.current = pendingCount
+    setOrders(list)
     setLoading(false)
   }
 
@@ -68,12 +97,21 @@ export default function ManagerPage() {
       if (user?.user_metadata?.avatar_url) setManagerAvatar(user.user_metadata.avatar_url as string)
     })
 
+    fetch('/api/restaurants/current')
+      .then(r => r.json())
+      .then(r => { if (r?.name) setRestaurantName(r.name) })
+      .catch(() => {})
+
     const channel = supabase
       .channel('manager-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, fetchBillRequests)
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+
+    // Realtime needs an authed socket; poll as a safety net as well
+    const poll = setInterval(() => { fetchOrders(); fetchBillRequests() }, 30000)
+    return () => { supabase.removeChannel(channel); clearInterval(poll) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function printKOT(order: Order) {
@@ -98,7 +136,7 @@ export default function ManagerPage() {
       </style></head>
       <body>
         <h2>KOT</h2>
-        <div class="sub">The QR Kitchen</div>
+        <div class="sub">${restaurantName || ''}</div>
         <div class="divider"></div>
         <p style="margin:4px 0;font-size:14px;"><strong>Table:</strong> ${order.table?.table_number || '—'}</p>
         <p style="margin:4px 0;font-size:14px;"><strong>Order#:</strong> ${order.id.slice(-6).toUpperCase()}</p>
@@ -178,11 +216,15 @@ export default function ManagerPage() {
   }
 
   async function closeSession(sessionId: string) {
-    await fetch('/api/sessions/close', {
+    const res = await fetch('/api/sessions/close', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId }),
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || 'Could not close the session.')
+    }
     fetchBillRequests()
     fetchOrders()
   }

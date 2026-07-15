@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -25,13 +25,13 @@ const PLANS: { id: Plan; label: string; price: string; perks: string[] }[] = [
     id: 'free',
     label: 'Starter',
     price: 'Free',
-    perks: ['Up to 10 tables', 'Digital QR menu', 'QR code download'],
+    perks: ['Up to 10 tables', 'Up to 50 menu items', 'Digital QR menu', 'QR code download'],
   },
   {
     id: 'pro',
     label: 'Pro',
-    price: '₹999/mo',
-    perks: ['Unlimited tables', 'Kitchen display', 'Priority support'],
+    price: '₹499/mo · 14-day free trial',
+    perks: ['Unlimited tables', 'Unlimited menu items', 'Kitchen display', 'Priority support'],
   },
 ]
 
@@ -56,12 +56,32 @@ export default function OnboardClient() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState<{ email: string; subdomain: string } | null>(null)
   const [resendMsg, setResendMsg] = useState('')
+  // Remember the auth user across retries so a failed restaurant-create
+  // (e.g. subdomain taken) doesn't strand an orphan signup.
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null)
+  const [availability, setAvailability] = useState<'unknown' | 'checking' | 'available' | 'taken'>('unknown')
 
   const subdomainValid = /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/.test(form.subdomain) || /^[a-z0-9]{2,32}$/.test(form.subdomain)
   const subdomainError = subdomainTouched && form.subdomain.length > 0 && !subdomainValid
     ? 'Only lowercase letters, numbers, and hyphens. Min 2 characters.'
     : ''
   const passwordMismatch = form.confirmPassword.length > 0 && form.password !== form.confirmPassword
+
+  // Live subdomain availability check (debounced)
+  useEffect(() => {
+    if (!form.subdomain || !subdomainValid) { setAvailability('unknown'); return }
+    setAvailability('checking')
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/subdomain-check?value=${encodeURIComponent(form.subdomain)}`)
+        const data = await res.json()
+        setAvailability(data.available ? 'available' : 'taken')
+      } catch {
+        setAvailability('unknown')
+      }
+    }, 400)
+    return () => clearTimeout(t)
+  }, [form.subdomain, subdomainValid])
 
   function handleNameChange(value: string) {
     setForm(f => ({ ...f, name: value, subdomain: subdomainTouched ? f.subdomain : toSlug(value) }))
@@ -79,26 +99,36 @@ export default function OnboardClient() {
       setError('Password must be at least 8 characters.')
       return
     }
+    if (availability === 'taken') {
+      setError('This URL is already taken. Please pick another one.')
+      return
+    }
 
     setLoading(true)
     setError('')
 
     const supabase = createClient()
 
-    // 1. Create auth user → sends verification email automatically
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: form.owner_email,
-      password: form.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/admin/login`,
-        data: { name: form.name },
-      },
-    })
+    // 1. Create auth user → sends verification email automatically.
+    //    On retry (e.g. subdomain was taken) reuse the already-created user.
+    let userId = createdUserId
+    if (!userId) {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: form.owner_email,
+        password: form.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/admin/login`,
+          data: { name: form.name },
+        },
+      })
 
-    if (authError) {
-      setError(authError.message)
-      setLoading(false)
-      return
+      if (authError) {
+        setError(authError.message)
+        setLoading(false)
+        return
+      }
+      userId = authData.user?.id ?? null
+      setCreatedUserId(userId)
     }
 
     // 2. Create restaurant entry
@@ -111,14 +141,12 @@ export default function OnboardClient() {
         owner_email: form.owner_email,
         phone: form.phone,
         plan: form.plan,
-        user_id: authData.user?.id,
+        user_id: userId,
       }),
     })
 
     const data = await res.json()
     if (!res.ok) {
-      // Cleanup: sign out the created user if restaurant creation fails
-      await supabase.auth.signOut()
       setError(data.error || 'Something went wrong. Please try again.')
       setLoading(false)
       return
@@ -252,10 +280,16 @@ export default function OnboardClient() {
                 <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" /> {subdomainError}
                 </p>
+              ) : availability === 'taken' ? (
+                <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> This URL is already taken.
+                </p>
               ) : form.subdomain ? (
                 <p className="mt-1.5 text-xs text-blue-600 flex items-center gap-1">
                   <Globe className="w-3 h-3" />
                   Your menu: <span className="font-semibold">bicres.com/{form.subdomain}</span>
+                  {availability === 'checking' && <span className="text-gray-400 ml-1">checking…</span>}
+                  {availability === 'available' && <CheckCircle2 className="w-3 h-3 text-green-500 ml-1" />}
                 </p>
               ) : null}
             </div>
@@ -356,7 +390,7 @@ export default function OnboardClient() {
 
           <button
             type="submit"
-            disabled={loading || !form.name || !form.subdomain || !form.owner_email || !form.password || !!subdomainError || passwordMismatch}
+            disabled={loading || !form.name || !form.subdomain || !form.owner_email || !form.password || !!subdomainError || passwordMismatch || availability === 'taken'}
             className="w-full flex items-center justify-center gap-2 bg-blue-800 text-white font-semibold py-4 rounded-xl text-base hover:bg-blue-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-100"
           >
             {loading ? (

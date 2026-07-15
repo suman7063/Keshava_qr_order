@@ -26,7 +26,11 @@ export default function MenuPage() {
   const [pdfTextColor, setPdfTextColor] = useState('')
   const [pdfSubTextColor, setPdfSubTextColor] = useState('')
   const [pdfHeroImage, setPdfHeroImage] = useState('')
-  const RESTAURANT_NAME = 'The QR Kitchen'
+  const [restaurantName, setRestaurantName] = useState('Our Restaurant')
+  const [showCatModal, setShowCatModal] = useState(false)
+  const [catName, setCatName] = useState('')
+  const [catError, setCatError] = useState('')
+  const [savingCat, setSavingCat] = useState(false)
   const [form, setForm] = useState({
     name: '', description: '', price: '', category_id: '',
     is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '',
@@ -53,30 +57,63 @@ export default function MenuPage() {
   }
 
   async function fetchData() {
-    const [catRes, itemRes, settingsRes] = await Promise.all([
-      fetch('/api/menu-categories'),
-      fetch('/api/menu-items'),
-      fetch('/api/settings'),
-    ])
-    const cats = await catRes.json()
-    const menuItems = await itemRes.json()
-    const settings = await settingsRes.json()
-    setCategories(cats)
-    setItems(menuItems)
-    setShowMenuImages(settings.show_menu_images ?? true)
-    if (cats.length > 0 && !activeCategory) setActiveCategory(cats[0].id)
+    try {
+      const [catRes, itemRes, settingsRes, restRes] = await Promise.all([
+        fetch('/api/menu-categories'),
+        fetch('/api/menu-items'),
+        fetch('/api/settings'),
+        fetch('/api/restaurants/current'),
+      ])
+      const cats = catRes.ok ? await catRes.json() : []
+      const menuItems = itemRes.ok ? await itemRes.json() : []
+      const settings = settingsRes.ok ? await settingsRes.json() : {}
+      const restaurant = restRes.ok ? await restRes.json() : null
+      setCategories(Array.isArray(cats) ? cats : [])
+      setItems(Array.isArray(menuItems) ? menuItems : [])
+      setShowMenuImages(settings.show_menu_images ?? true)
+      if (restaurant?.name) setRestaurantName(restaurant.name)
+      if (cats.length > 0 && !activeCategory) setActiveCategory(cats[0].id)
+    } catch {
+      showToast('Could not load menu data. Please refresh.')
+    }
   }
 
   async function toggleMenuImages(val: boolean) {
     setShowMenuImages(val)
-    await fetch('/api/settings', {
+    const res = await fetch('/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ show_menu_images: val }),
     })
+    if (!res.ok) {
+      setShowMenuImages(!val)
+      showToast('Could not save the setting.')
+    }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData() }, [])
+
+  async function addCategory() {
+    if (!catName.trim()) return
+    setSavingCat(true)
+    setCatError('')
+    const res = await fetch('/api/menu-categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: catName.trim(), display_order: categories.length }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      setCatError(data.error || 'Could not create category.')
+    } else {
+      showToast(`Category "${catName.trim()}" created!`)
+      setCatName('')
+      setShowCatModal(false)
+      fetchData()
+    }
+    setSavingCat(false)
+  }
 
   function exportCSV() {
     const header = 'Name,Description,Price,Category,Vegetarian,Vegan,Available,Prep Time (min)'
@@ -108,7 +145,7 @@ export default function MenuPage() {
 
   function exportPDF() {
     if (!pdfLib) return
-    const html = pdfLib.getPdfHTML(pdfTemplateId, categories, items, RESTAURANT_NAME, {
+    const html = pdfLib.getPdfHTML(pdfTemplateId, categories, items, restaurantName, {
       bgColor: pdfBgColor || undefined,
       textColor: pdfTextColor || undefined,
       subTextColor: pdfSubTextColor || undefined,
@@ -150,34 +187,46 @@ export default function MenuPage() {
   }
 
   async function save() {
+    if (!form.name.trim() || !form.category_id || !form.price) {
+      showToast('Name, category and price are required.')
+      return
+    }
     setSaving(true)
     const payload = {
       ...form,
       price: parseFloat(form.price),
       prep_time_minutes: form.prep_time_minutes ? parseInt(form.prep_time_minutes) : null,
     }
-    if (editItem) {
-      await fetch(`/api/menu-items/${editItem.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    const res = editItem
+      ? await fetch(`/api/menu-items/${editItem.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      : await fetch('/api/menu-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      showToast(data.error || 'Could not save the item.')
     } else {
-      await fetch('/api/menu-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      setShowModal(false)
+      fetchData()
     }
-    setShowModal(false)
-    fetchData()
     setSaving(false)
   }
 
   async function deleteItem(id: string) {
     if (!confirm('Delete this menu item?')) return
-    await fetch(`/api/menu-items/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/menu-items/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      showToast(data.error || 'Could not delete the item.')
+    }
     fetchData()
   }
 
   async function toggleAvailable(item: MenuItem) {
-    await fetch(`/api/menu-items/${item.id}`, {
+    const res = await fetch(`/api/menu-items/${item.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_available: !item.is_available }),
     })
+    if (!res.ok) showToast('Could not update availability.')
     fetchData()
   }
 
@@ -239,6 +288,12 @@ export default function MenuPage() {
             {cat.name} ({items.filter(i => i.category_id === cat.id).length})
           </button>
         ))}
+        <button
+          onClick={() => { setShowCatModal(true); setCatError('') }}
+          className="whitespace-nowrap shrink-0 px-4 py-2 rounded-full text-sm font-medium text-orange-500 border border-dashed border-orange-300 hover:bg-orange-50 transition-colors"
+        >
+          + Category
+        </button>
       </div>
 
       {/* Items Table */}
@@ -411,6 +466,27 @@ export default function MenuPage() {
         </div>
       </Modal>
 
+      {/* Add Category Modal */}
+      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title="Add Category">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category name *</label>
+            <input
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
+              value={catName}
+              onChange={e => setCatName(e.target.value)}
+              placeholder="e.g. Starters"
+              maxLength={100}
+            />
+          </div>
+          {catError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{catError}</div>}
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowCatModal(false)}>Cancel</Button>
+            <Button className="flex-1" loading={savingCat} onClick={addCategory}>Add Category</Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* PDF Template Picker Modal */}
       <Modal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} title="Choose PDF Template" size="lg">
         <div className="space-y-4">
@@ -421,7 +497,7 @@ export default function MenuPage() {
                 t.id,
                 categories.slice(0, 3),
                 items.slice(0, 6),
-                RESTAURANT_NAME,
+                restaurantName,
                 isSelected ? {
                   bgColor: pdfBgColor || undefined,
                   textColor: pdfTextColor || undefined,

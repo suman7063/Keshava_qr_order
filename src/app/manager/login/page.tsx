@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BarChart3, Lock, Mail, Eye, EyeOff } from 'lucide-react'
@@ -35,10 +36,11 @@ function ManagerLoginForm() {
       return
     }
 
-    const { data: roleData } = await supabase
-      .from('user_roles').select('role').eq('user_id', data.user.id).single()
+    const { data: roleRows } = await supabase
+      .from('user_roles').select('role').eq('user_id', data.user.id)
 
-    if (roleData?.role !== 'manager' && roleData?.role !== 'admin') {
+    const hasAccess = (roleRows || []).some(r => ['manager', 'admin', 'superadmin'].includes(r.role))
+    if (!hasAccess) {
       await supabase.auth.signOut()
       setError('This account does not have manager access.')
       setLoading(false)
@@ -57,7 +59,7 @@ function ManagerLoginForm() {
             <BarChart3 className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Manager Login</h1>
-          <p className="text-gray-500 text-sm mt-1">QR Kitchen — Manager Panel</p>
+          <p className="text-gray-500 text-sm mt-1">Restaurant Manager Panel</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -98,7 +100,7 @@ function ManagerLoginForm() {
 
         <p className="text-center mt-6 text-sm text-gray-400">
           Are you an admin?{' '}
-          <a href="/admin/login" className="text-orange-500 font-medium hover:underline">Admin Login</a>
+          <Link href="/admin/login" className="text-orange-500 font-medium hover:underline">Admin Login</Link>
         </p>
       </div>
     </div>

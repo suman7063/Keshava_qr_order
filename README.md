@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# bicres — QR Ordering SaaS for Restaurants
 
-## Getting Started
+Multi-tenant QR ordering platform built with **Next.js 16 (App Router)**, **Supabase** and **Tailwind CSS 4**. Restaurants sign up, get their own subdomain (`zara.bicres.com`), print QR codes per table, and customers order from their phone — no app install.
 
-First, run the development server:
+## Features
+
+- **Self-serve onboarding** — email + password signup with verification, subdomain picker with live availability check, Free / Pro (14-day trial) plans
+- **Menu management** — categories, items with images, veg/vegan flags, CSV export, printable PDF menus (5 templates)
+- **Tables & QR codes** — per-table QR, 4 printable card templates with custom colors/text
+- **Customer ordering** — mobile menu, cart, table sessions with a shared 6-digit join code, live order tracking, bill request
+- **Manager dashboard** — accept/reject orders, KOT thermal print, bill requests, daily stats, new-order sound alert
+- **Kitchen display** — realtime confirmed → preparing → ready pipeline
+- **Superadmin panel** — manage all tenants, plans and status
+- **Security** — tenant-scoped RLS policies, role-based API authorization (admin / manager / superadmin), server-side pricing, plan limit enforcement, audit logs
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # fill in your Supabase keys
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Database setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Create a Supabase project.
+2. Run `supabase-schema.sql` in the SQL editor (fresh install), **then run every file in `supabase/migrations/` in order** — `003_saas_security.sql` is required; without it the RLS policies are allow-all.
+   - Or with the CLI: `SUPABASE_PROJECT_REF=<ref> npm run supabase:deploy`
+3. Create your superadmin: sign up a user, then insert a row in `user_roles` with `role = 'superadmin'` (restaurant_id NULL) via the SQL editor.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Environment variables
 
-## Learn More
+See [.env.example](.env.example). The service-role key is server-only.
 
-To learn more about Next.js, take a look at the following resources:
+### Multi-tenancy
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The proxy ([src/proxy.ts](src/proxy.ts)) extracts the subdomain from the Host header and forwards it as `x-subdomain`; every API route resolves the tenant from it. Locally, everything maps to the `default` tenant.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Plans & billing
 
-## Deploy on Vercel
+Plan limits live in [src/lib/plans.ts](src/lib/plans.ts) and are enforced in the tables / menu-items APIs. Self-serve Pro signups get a 14-day trial (`restaurants.trial_ends_at`), after which limits fall back to Free. A `subscriptions` table skeleton exists for the payment-gateway integration (Razorpay/Stripe) — **not wired up yet**; plan changes are currently manual via the superadmin panel.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **App**: Netlify/Vercel — set the env vars from `.env.example`, wildcard domain `*.bicres.com` pointed at the app.
+- **Database**: pushing to `main` with changes under `supabase/` runs the migration workflow (`.github/workflows/deploy-supabase.yml`). CI (lint + typecheck + build) runs on every push/PR.

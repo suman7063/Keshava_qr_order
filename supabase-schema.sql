@@ -1,5 +1,8 @@
 -- QR Restaurant Ordering System — Multi-tenant Schema
--- Run this for a fresh install. For existing installs, run supabase/migrations/001_multitenant.sql
+-- Run this for a fresh install, THEN run supabase/migrations/003_saas_security.sql
+-- (REQUIRED — it replaces the allow-all RLS policies below with real,
+-- tenant-scoped policies and adds billing/audit tables).
+-- For existing installs, run the files in supabase/migrations/ in order.
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 

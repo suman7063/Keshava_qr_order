@@ -1,12 +1,15 @@
 import { ImageResponse } from 'next/og'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
+
+// ISR: same cadence as the restaurant page itself.
+export const revalidate = 300
 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data } = await supabase
     .from('restaurants')
     .select('name')

@@ -22,8 +22,8 @@ function LoginForm() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       const { data } = await supabase
-        .from('user_roles').select('role').eq('user_id', user.id).single()
-      if (data?.role === 'superadmin') router.replace('/superadmin')
+        .from('user_roles').select('role').eq('user_id', user.id)
+      if ((data || []).some(r => r.role === 'superadmin')) router.replace('/superadmin')
     })
   }, [searchParams, router])
 
@@ -38,9 +38,9 @@ function LoginForm() {
       setLoading(false)
       return
     }
-    const { data: roleData } = await supabase
-      .from('user_roles').select('role').eq('user_id', data.user.id).single()
-    if (roleData?.role !== 'superadmin') {
+    const { data: roleRows } = await supabase
+      .from('user_roles').select('role').eq('user_id', data.user.id)
+    if (!(roleRows || []).some(r => r.role === 'superadmin')) {
       await supabase.auth.signOut()
       setError('This account does not have super admin access.')
       setLoading(false)

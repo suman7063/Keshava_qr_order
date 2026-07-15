@@ -28,9 +28,9 @@ export default function KitchenPage() {
 
   async function fetchOrders() {
     const res = await fetch('/api/orders?today=true')
-    const data = await res.json()
+    const data = res.ok ? await res.json() : []
     // Only show active orders in kitchen
-    setOrders(data.filter((o: Order) => ACTIVE_STATUSES.includes(o.status)))
+    setOrders((Array.isArray(data) ? data : []).filter((o: Order) => ACTIVE_STATUSES.includes(o.status)))
     setLoading(false)
   }
 
@@ -48,11 +48,15 @@ export default function KitchenPage() {
 
   async function updateStatus(orderId: string, status: OrderStatus) {
     setUpdating(orderId)
-    await fetch(`/api/orders/${orderId}`, {
+    const res = await fetch(`/api/orders/${orderId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || 'Could not update the order.')
+    }
     await fetchOrders()
     setUpdating(null)
   }
@@ -116,8 +120,8 @@ export default function KitchenPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <ChefHat className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400 text-lg">Koi order nahi</p>
-            <p className="text-gray-500 text-sm mt-1">Manager ke accept karne ke baad orders yahan aayenge</p>
+            <p className="text-gray-400 text-lg">No active orders</p>
+            <p className="text-gray-500 text-sm mt-1">Orders will appear here once the manager accepts them</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

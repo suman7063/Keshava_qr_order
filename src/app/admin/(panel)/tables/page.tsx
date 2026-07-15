@@ -35,6 +35,7 @@ export default function TablesPage() {
   const [tables, setTables] = useState<RestaurantTable[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [addError, setAddError] = useState('')
   const [editTable, setEditTable] = useState<RestaurantTable | null>(null)
   const [qrModal, setQrModal] = useState<RestaurantTable | null>(null)
   const [qrDataUrl, setQrDataUrl] = useState('')
@@ -112,7 +113,8 @@ export default function TablesPage() {
 
   async function fetchTables() {
     const res = await fetch('/api/tables')
-    setTables(await res.json())
+    const data = res.ok ? await res.json() : []
+    setTables(Array.isArray(data) ? data : [])
     setLoading(false)
   }
 
@@ -133,6 +135,7 @@ export default function TablesPage() {
 
   async function addTable() {
     setSaving(true)
+    setAddError('')
     const res = await fetch('/api/tables', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -142,6 +145,9 @@ export default function TablesPage() {
       setShowAdd(false)
       setForm({ table_number: '', capacity: 4 })
       fetchTables()
+    } else {
+      const data = await res.json().catch(() => ({}))
+      setAddError(data.error || 'Could not add the table.')
     }
     setSaving(false)
   }
@@ -149,11 +155,15 @@ export default function TablesPage() {
   async function saveEdit() {
     if (!editTable) return
     setSaving(true)
-    await fetch(`/api/tables/${editTable.id}`, {
+    const res = await fetch(`/api/tables/${editTable.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editForm),
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || 'Could not save the table.')
+    }
     setEditTable(null)
     fetchTables()
     setSaving(false)
@@ -161,7 +171,11 @@ export default function TablesPage() {
 
   async function deleteTable(id: string) {
     if (!confirm('Delete this table?')) return
-    await fetch(`/api/tables/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/tables/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || 'Could not delete the table.')
+    }
     fetchTables()
   }
 
@@ -270,6 +284,7 @@ export default function TablesPage() {
             <input type="number" min={1} className={inputClass} placeholder="e.g. 4"
               value={form.capacity} onChange={e => setForm(f => ({ ...f, capacity: Number(e.target.value) }))} />
           </div>
+          {addError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{addError}</div>}
           <div className="flex gap-3 pt-2">
             <Button variant="outline" className="flex-1" onClick={() => setShowAdd(false)}>Cancel</Button>
             <Button className="flex-1" loading={saving} onClick={addTable}>Add Table</Button>

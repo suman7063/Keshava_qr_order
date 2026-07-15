@@ -1,26 +1,23 @@
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requireStaff, auditLog } from '@/lib/auth'
 
-// Sab managers ki list
-export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+// List this restaurant's managers (admin only)
+export async function GET(request: Request) {
+  const ctx = await requireStaff(request, { adminOnly: true })
+  if (ctx instanceof NextResponse) return ctx
 
-  const admin = createAdminClient()
-
-  const { data: roles, error } = await admin
+  const { data: roles, error } = await ctx.db
     .from('user_roles')
     .select('user_id, role, created_at')
     .eq('role', 'manager')
+    .eq('restaurant_id', ctx.restaurantId)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const managers = await Promise.all(
     (roles || []).map(async (r) => {
-      const { data } = await admin.auth.admin.getUserById(r.user_id)
+      const { data } = await ctx.db.auth.admin.getUserById(r.user_id)
       return {
         user_id: r.user_id,
         email: data.user?.email || '',
@@ -34,18 +31,26 @@ export async function GET() {
   return NextResponse.json(managers)
 }
 
-// Naya manager banao
+// Create a manager for this restaurant (admin only)
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireStaff(request, { adminOnly: true })
+  if (ctx instanceof NextResponse) return ctx
 
-  const { email, password, name, avatar_url } = await request.json()
-  if (!email || !password) return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+  let body: { email?: string; password?: string; name?: string; avatar_url?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+  const { email, password, name, avatar_url } = body
+  if (!email || !password) {
+    return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+  }
+  if (password.length < 8) {
+    return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
+  }
 
-  const admin = createAdminClient()
-
-  const { data: newUser, error: createError } = await admin.auth.admin.createUser({
+  const { data: newUser, error: createError } = await ctx.db.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -54,12 +59,23 @@ export async function POST(request: Request) {
 
   if (createError) return NextResponse.json({ error: createError.message }, { status: 500 })
 
-  // Role assign karo
-  const { error: roleError } = await admin
+  const { error: roleError } = await ctx.db
     .from('user_roles')
-    .insert({ user_id: newUser.user.id, role: 'manager' })
+    .insert({ user_id: newUser.user.id, role: 'manager', restaurant_id: ctx.restaurantId })
 
-  if (roleError) return NextResponse.json({ error: roleError.message }, { status: 500 })
+  if (roleError) {
+    await ctx.db.auth.admin.deleteUser(newUser.user.id)
+    return NextResponse.json({ error: roleError.message }, { status: 500 })
+  }
+
+  await auditLog({
+    restaurant_id: ctx.restaurantId,
+    actor_id: ctx.user.id,
+    action: 'manager.created',
+    entity: 'user',
+    entity_id: newUser.user.id,
+    details: { email },
+  })
 
   return NextResponse.json({ success: true, user_id: newUser.user.id, email })
 }

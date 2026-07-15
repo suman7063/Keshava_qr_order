@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { MenuItem, MenuCategory, CartItem, TableSession, Order } from '@/types'
 import { formatCurrency, cn, formatDate } from '@/lib/utils'
 import { Plus, Minus, ChevronDown, CheckCircle, Clock, Phone, User, KeyRound, ShoppingCart, Receipt, FileText, X } from 'lucide-react'
@@ -40,22 +39,25 @@ export default function TablePage() {
   const [tableNumber, setTableNumber] = useState('')
   const [showOtpBadge, setShowOtpBadge] = useState(false)
   const [showMenuImages, setShowMenuImages] = useState(true)
+  const [restaurantName, setRestaurantName] = useState('')
 
   useEffect(() => {
     async function load() {
       try {
-        const [cats, items, tableData, settings] = await Promise.all([
+        const [cats, items, tableData, settings, restaurant] = await Promise.all([
           fetch('/api/menu-categories').then(r => r.json()),
           fetch('/api/menu-items').then(r => r.json()),
           fetch(`/api/tables/${tableId}`).then(r => r.json()),
           fetch('/api/settings').then(r => r.json()),
+          fetch('/api/restaurants/current').then(r => r.json()).catch(() => null),
         ])
-        setCategories(cats)
-        setMenuItems(items)
+        setCategories(Array.isArray(cats) ? cats : [])
+        setMenuItems(Array.isArray(items) ? items : [])
         setShowMenuImages(settings.show_menu_images ?? true)
-        if (cats.length > 0) setActiveCategory(cats[0].id)
+        if (restaurant?.name) setRestaurantName(restaurant.name)
+        if (Array.isArray(cats) && cats.length > 0) setActiveCategory(cats[0].id)
         if (tableData?.table_number) setTableNumber(tableData.table_number)
-        // Restore OTP from localStorage if session was already started
+        // Restore the table join code from localStorage if session was already started
         const saved = localStorage.getItem(`otp-${tableId}`)
         if (saved) { setGeneratedOtp(saved); setShowOtpBadge(true) }
       } catch (e) {
@@ -67,10 +69,16 @@ export default function TablePage() {
     load()
   }, [tableId])
 
+  function getSessionCode(): string {
+    return localStorage.getItem(`otp-${tableId}`) || ''
+  }
+
   async function fetchSessionOrders(sessionId: string) {
-    const res = await fetch(`/api/orders?session_id=${sessionId}`)
+    const res = await fetch(`/api/orders?session_id=${sessionId}`, {
+      headers: { 'x-session-code': getSessionCode() },
+    })
     const orders = await res.json()
-    setSessionOrders(orders)
+    setSessionOrders(Array.isArray(orders) ? orders : [])
   }
 
   function addToCart(item: MenuItem) {
@@ -138,14 +146,12 @@ export default function TablePage() {
     const items = cart.map(c => ({
       menu_item_id: c.menu_item.id,
       quantity: c.quantity,
-      unit_price: c.menu_item.price,
     }))
     const res = await fetch('/api/orders', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-session-code': getSessionCode() },
       body: JSON.stringify({
         session_id: sessionData.id,
-        table_id: tableId,
         items,
         customer_name: customerName,
       }),
@@ -155,6 +161,9 @@ export default function TablePage() {
       setShowOtpBadge(true)
       await fetchSessionOrders(sessionData.id)
       setDrawer('orders')
+    } else {
+      const data = await res.json().catch(() => ({}))
+      setOtpError(data.error || 'Could not place the order. Please try again.')
     }
     setPlacing(false)
   }
@@ -170,22 +179,26 @@ export default function TablePage() {
     })
     const data = await res.json()
     if (!res.ok) {
-      setOtpError('Invalid OTP. Ask the first customer for their OTP.')
+      setOtpError('Invalid code. Ask the first customer for their table code.')
       setPlacing(false)
       return
     }
+    // Guest verified — remember the code so they can order & view bills too
+    localStorage.setItem(`otp-${tableId}`, otpInput)
+    setGeneratedOtp(otpInput)
+    setShowOtpBadge(true)
     await placeOrder(data.session, guestName.trim() || 'Guest')
   }
 
   async function requestBill() {
     if (!session) return
     setRequestingBill(true)
-    await fetch('/api/sessions/bill', {
+    const res = await fetch('/api/sessions/bill', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-session-code': getSessionCode() },
       body: JSON.stringify({ session_id: session.id }),
     })
-    setBillRequested(true)
+    if (res.ok) setBillRequested(true)
     setShowBillConfirm(false)
     setRequestingBill(false)
   }
@@ -223,73 +236,11 @@ export default function TablePage() {
 
     checkSession()
 
-    // Realtime — session close hone par customer ka page bhi update ho
-    const supabase = createClient()
-    let poll: ReturnType<typeof setInterval> | null = null
-
-    const channel = supabase
-      .channel(`table-session-${tableId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'table_sessions',
-        filter: `table_id=eq.${tableId}`,
-      }, (payload) => {
-        if (payload.new.status === 'closed') {
-          setSession(null)
-          setBillRequested(false)
-          setSessionOrders([])
-          setDrawer('none')
-          localStorage.removeItem(`otp-${tableId}`)
-          setGeneratedOtp('')
-          setShowOtpBadge(false)
-        }
-      })
-      .subscribe((status) => {
-        // Realtime connected ho gaya — polling ki zaroorat nahi
-        if (status === 'SUBSCRIBED') {
-          if (poll) { clearInterval(poll); poll = null }
-        } else {
-          // Realtime fail — fallback polling shuru karo
-          if (!poll) poll = setInterval(checkSession, 30000)
-        }
-      })
-
-    // Initial fallback poll jab tak realtime connect na ho
-    poll = setInterval(checkSession, 30000)
-
-    return () => {
-      supabase.removeChannel(channel)
-      if (poll) clearInterval(poll)
-    }
+    // Session data is staff-only at the DB layer now, so realtime is not
+    // available to anonymous customers — poll the API instead.
+    const poll = setInterval(checkSession, 15000)
+    return () => clearInterval(poll)
   }, [tableId])
-
-  function getFoodImage(name: string): string {
-    const n = name.toLowerCase()
-    const base = 'https://images.unsplash.com/photo-'
-    const q = '?w=400&q=75&auto=format&fit=crop'
-    if (n.includes('chicken')) return `${base}1598515214211-89d3c73ae83b${q}`
-    if (n.includes('pizza')) return `${base}1565299624946-b28f40a0ae38${q}`
-    if (n.includes('burger')) return `${base}1568901346375-23c9450c58cd${q}`
-    if (n.includes('salad')) return `${base}1512621776951-a57141f2eefd${q}`
-    if (n.includes('cake') || n.includes('chocolate') || n.includes('lava')) return `${base}1578985545062-69928b1d9587${q}`
-    if (n.includes('lemonade') || n.includes('juice') || n.includes('drink')) return `${base}1621263764928-df1444c5e859${q}`
-    if (n.includes('cola') || n.includes('soda') || n.includes('coca')) return `${base}1571019613914-85f342c6a11e${q}`
-    if (n.includes('coffee') || n.includes('tea')) return `${base}1495474472287-4d71bcdd2085${q}`
-    if (n.includes('bread') || n.includes('garlic')) return `${base}1549931319-a545dcf3bc73${q}`
-    if (n.includes('steak') || n.includes('beef')) return `${base}1546964124-0cce460e69b1${q}`
-    if (n.includes('lamb') || n.includes('mutton')) return `${base}1504674900247-0877df9cc836${q}`
-    if (n.includes('pork') || n.includes('ribs')) return `${base}1544025162-d76538d31203${q}`
-    if (n.includes('fish') || n.includes('prawn') || n.includes('shrimp')) return `${base}1559339352-11d035aa65de${q}`
-    if (n.includes('pasta') || n.includes('noodle')) return `${base}1563379926898-05f4575a45d8${q}`
-    if (n.includes('rice') || n.includes('biryani')) return `${base}1603133872878-684f208fb84b${q}`
-    if (n.includes('soup')) return `${base}1547592166-23ac45744acd${q}`
-    if (n.includes('sandwich') || n.includes('wrap')) return `${base}1553979459-d1b5a5e0d3e3${q}`
-    if (n.includes('paneer')) return `${base}1631452180519-cd6e1ab18cbc${q}`
-    if (n.includes('caesar')) return `${base}1550304943-4f24f54ddde9${q}`
-    if (n.includes('margherita')) return `${base}1565299624946-b28f40a0ae38${q}`
-    return `${base}1504674900247-0877df9cc836${q}`
-  }
 
   const filteredItems = activeCategory
     ? menuItems.filter(i => i.category_id === activeCategory && i.is_available)
@@ -327,7 +278,7 @@ export default function TablePage() {
       <div className="bg-[#1e3a5f] px-4 py-3">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-black text-white tracking-widest uppercase">The QR Kitchen</h1>
+            <h1 className="text-xl font-black text-white tracking-widest uppercase">{restaurantName || 'Menu'}</h1>
             <p className="text-blue-300 text-xs mt-0.5">Table {tableNumber || tableId.slice(-4)}</p>
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -367,7 +318,7 @@ export default function TablePage() {
 
       {/* Menu Items */}
       {showMenuImages
-        ? <MenuTemplate1 items={filteredItems} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} getFoodImage={getFoodImage} />
+        ? <MenuTemplate1 items={filteredItems} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} />
         : <MenuTemplate2 items={filteredItems} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} />
       }
 

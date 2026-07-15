@@ -224,7 +224,7 @@ const PLANS = [
     features: ['1 restaurant', 'Up to 10 tables', 'Digital QR menu', 'QR card templates', 'Basic analytics'],
   },
   {
-    name: 'Pro', price: '₹999', period: 'per month', highlight: true,
+    name: 'Pro', price: '₹499', period: 'per month', highlight: true,
     features: ['1 restaurant', 'Unlimited tables', 'All menu templates', 'PDF menu export', 'Kitchen display', 'Manager dashboard', 'Priority support'],
   },
   {
@@ -892,9 +892,9 @@ export default function HomeClient({ restaurant }: HomeClientProps) {
                     <div className="w-9 h-9 border border-white/25 flex items-center justify-center shrink-0">
                       <ArrowRight className="w-4 h-4 text-white" />
                     </div>
-                    <a href="/onboard" className="text-white text-xs font-bold uppercase tracking-widest hover:text-blue-300 transition-colors">
+                    <Link href="/onboard" className="text-white text-xs font-bold uppercase tracking-widest hover:text-blue-300 transition-colors">
                       Get Started Free
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </Reveal>

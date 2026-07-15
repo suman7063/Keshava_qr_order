@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { UtensilsCrossed, Lock, Mail, Eye, EyeOff } from 'lucide-react'
@@ -23,9 +24,9 @@ function AdminLoginForm() {
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
-      const { data: roleData } = await supabase
-        .from('user_roles').select('role').eq('user_id', user.id).single()
-      if (roleData?.role === 'admin') router.replace('/admin')
+      const { data: roleRows } = await supabase
+        .from('user_roles').select('role').eq('user_id', user.id)
+      if ((roleRows || []).some(r => r.role === 'admin')) router.replace('/admin')
     })
   }, [searchParams, router])
 
@@ -43,10 +44,10 @@ function AdminLoginForm() {
       return
     }
 
-    const { data: roleData } = await supabase
-      .from('user_roles').select('role').eq('user_id', data.user.id).single()
+    const { data: roleRows } = await supabase
+      .from('user_roles').select('role').eq('user_id', data.user.id)
 
-    if (roleData?.role !== 'admin') {
+    if (!(roleRows || []).some(r => r.role === 'admin' || r.role === 'superadmin')) {
       await supabase.auth.signOut()
       setError('This account does not have admin access.')
       setLoading(false)
@@ -65,7 +66,7 @@ function AdminLoginForm() {
             <UtensilsCrossed className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Admin Login</h1>
-          <p className="text-gray-500 text-sm mt-1">QR Kitchen — Admin Panel</p>
+          <p className="text-gray-500 text-sm mt-1">Restaurant Admin Panel</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -104,9 +105,12 @@ function AdminLoginForm() {
           </Button>
         </form>
 
-        <p className="text-center mt-6 text-sm text-gray-400">
+        <p className="text-center mt-4 text-sm">
+          <Link href="/admin/forgot-password" className="text-gray-400 hover:text-orange-500 hover:underline">Forgot password?</Link>
+        </p>
+        <p className="text-center mt-3 text-sm text-gray-400">
           Are you a manager?{' '}
-          <a href="/manager/login" className="text-orange-500 font-medium hover:underline">Manager Login</a>
+          <Link href="/manager/login" className="text-orange-500 font-medium hover:underline">Manager Login</Link>
         </p>
       </div>
     </div>

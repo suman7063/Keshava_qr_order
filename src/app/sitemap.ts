@@ -1,5 +1,8 @@
 import { MetadataRoute } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
+
+// ISR: rebuild the sitemap at most once an hour.
+export const revalidate = 3600
 
 const staticUrls: MetadataRoute.Sitemap = [
   { url: 'https://bicres.com', lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },
@@ -13,7 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let restaurantUrls: MetadataRoute.Sitemap = []
 
   try {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
     const { data: restaurants } = await supabase
       .from('restaurants')
       .select('subdomain, updated_at')

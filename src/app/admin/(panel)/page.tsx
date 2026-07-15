@@ -19,8 +19,10 @@ export default function AdminDashboard() {
         fetch('/api/orders'),
         fetch('/api/tables'),
       ])
-      setOrders(await ordersRes.json())
-      setTables(await tablesRes.json())
+      const ordersData = ordersRes.ok ? await ordersRes.json() : []
+      const tablesData = tablesRes.ok ? await tablesRes.json() : []
+      setOrders(Array.isArray(ordersData) ? ordersData : [])
+      setTables(Array.isArray(tablesData) ? tablesData : [])
       setLoading(false)
     }
     load()

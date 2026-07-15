@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 
+// Derive the storage host from the configured Supabase project
+const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  : 'cftyzgkwevutshbckrjm.supabase.co'
+
 const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
@@ -8,7 +13,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'cftyzgkwevutshbckrjm.supabase.co',
+        hostname: supabaseHost,
         pathname: '/storage/v1/object/public/**',
       },
       {

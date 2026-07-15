@@ -1,15 +1,17 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getRestaurantId } from '@/lib/restaurant'
+import { requireStaff } from '@/lib/auth'
 
+// Public: the customer menu needs display settings.
 export async function GET(request: Request) {
   const restaurantId = await getRestaurantId(request)
   if (!restaurantId) return NextResponse.json({ show_menu_images: true })
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
+  const db = createAdminClient()
+  const { data, error } = await db
     .from('restaurant_settings')
-    .select('*')
+    .select('show_menu_images')
     .eq('restaurant_id', restaurantId)
     .single()
 
@@ -20,15 +22,25 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const restaurantId = await getRestaurantId(request)
-  if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
+  const ctx = await requireStaff(request, { adminOnly: true })
+  if (ctx instanceof NextResponse) return ctx
 
-  const supabase = await createClient()
-  const body = await request.json()
+  let body: { show_menu_images?: boolean }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
 
-  const { data, error } = await supabase
+  const updates: Record<string, unknown> = {}
+  if (typeof body.show_menu_images === 'boolean') updates.show_menu_images = body.show_menu_images
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+  }
+
+  const { data, error } = await ctx.db
     .from('restaurant_settings')
-    .upsert({ restaurant_id: restaurantId, ...body }, { onConflict: 'restaurant_id' })
+    .upsert({ restaurant_id: ctx.restaurantId, ...updates }, { onConflict: 'restaurant_id' })
     .select()
     .single()
 
