@@ -13,6 +13,15 @@
 
 -- ── 1. user_roles fixes ─────────────────────────────────────
 
+-- Older installs created user_roles without tenant scoping
+ALTER TABLE user_roles
+  ADD COLUMN IF NOT EXISTS restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE;
+
+-- Bind legacy tenant-less admin/manager roles to the default restaurant
+UPDATE user_roles ur
+SET restaurant_id = (SELECT id FROM restaurants WHERE subdomain = 'default' LIMIT 1)
+WHERE ur.restaurant_id IS NULL AND ur.role IN ('admin', 'manager');
+
 ALTER TABLE user_roles DROP CONSTRAINT IF EXISTS user_roles_role_check;
 ALTER TABLE user_roles
   ADD CONSTRAINT user_roles_role_check CHECK (role IN ('admin', 'manager', 'superadmin'));
