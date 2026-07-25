@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Store, CheckCircle2, XCircle, TrendingUp, Search, ExternalLink, Trash2, Loader2, RefreshCw } from 'lucide-react'
+import { Store, CheckCircle2, XCircle, TrendingUp, Search, ExternalLink, Trash2, Loader2, RefreshCw, IndianRupee, CreditCard, Clock, AlertTriangle } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
 
 interface Restaurant {
   id: string
@@ -12,6 +13,29 @@ interface Restaurant {
   owner_email: string | null
   phone: string | null
   created_at: string
+}
+
+type Billing =
+  | { status: 'paying'; plan: string }
+  | { status: 'trial'; plan: string; trialDaysLeft: number }
+  | { status: 'comp'; plan: string }
+  | { status: 'free' }
+
+interface Stats {
+  mrr: number
+  paying: number
+  onTrial: number
+  trialsEndingSoon: number
+  comped: number
+  churned: number
+  billing: Record<string, Billing>
+}
+
+function BillingBadge({ b }: { b?: Billing }) {
+  if (!b || b.status === 'free') return <span className="text-xs text-gray-400">—</span>
+  if (b.status === 'paying') return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Paying</span>
+  if (b.status === 'trial') return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Trial · {b.trialDaysLeft}d</span>
+  return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Comp</span>
 }
 
 const PLAN_COLORS: Record<string, string> = {
@@ -28,6 +52,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function SuperAdminDashboard() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
+  const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [updating, setUpdating] = useState<string | null>(null)
@@ -35,9 +60,13 @@ export default function SuperAdminDashboard() {
 
   const fetchRestaurants = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/restaurants')
-    const data = await res.json()
+    const [rRes, sRes] = await Promise.all([
+      fetch('/api/restaurants'),
+      fetch('/api/superadmin/stats'),
+    ])
+    const data = rRes.ok ? await rRes.json() : []
     setRestaurants(Array.isArray(data) ? data : [])
+    setStats(sRes.ok ? await sRes.json() : null)
     setLoading(false)
   }, [])
 
@@ -92,10 +121,9 @@ export default function SuperAdminDashboard() {
     (r.owner_email || '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const stats = {
+  const counts = {
     total: restaurants.length,
     active: restaurants.filter(r => r.status === 'active').length,
-    pro: restaurants.filter(r => r.plan === 'pro').length,
     thisMonth: restaurants.filter(r => {
       const d = new Date(r.created_at)
       const now = new Date()
@@ -118,24 +146,43 @@ export default function SuperAdminDashboard() {
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total', value: stats.total, icon: Store, color: 'text-blue-800', bg: 'bg-blue-50' },
-          { label: 'Active', value: stats.active, icon: CheckCircle2, color: 'text-green-700', bg: 'bg-green-50' },
-          { label: 'Pro Plan', value: stats.pro, icon: TrendingUp, color: 'text-purple-700', bg: 'bg-purple-50' },
-          { label: 'This Month', value: stats.thisMonth, icon: TrendingUp, color: 'text-orange-700', bg: 'bg-orange-50' },
-        ].map(s => (
-          <div key={s.label} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4">
-            <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center`}>
-              <s.icon className={`w-5 h-5 ${s.color}`} />
+      {/* Revenue — the numbers that matter to the platform owner */}
+      <div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'MRR (monthly)', value: stats ? formatCurrency(stats.mrr) : '—', icon: IndianRupee, color: 'text-green-700', bg: 'bg-green-50' },
+            { label: 'Paying', value: stats?.paying ?? '—', icon: CreditCard, color: 'text-blue-800', bg: 'bg-blue-50' },
+            { label: 'On Trial', value: stats?.onTrial ?? '—', icon: Clock, color: 'text-orange-700', bg: 'bg-orange-50' },
+            { label: 'Trials ending ≤3d', value: stats?.trialsEndingSoon ?? '—', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
+          ].map(s => (
+            <div key={s.label} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4">
+              <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center`}>
+                <s.icon className={`w-5 h-5 ${s.color}`} />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{s.value}</div>
+                <div className="text-xs text-gray-500">{s.label}</div>
+              </div>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{s.value}</div>
-              <div className="text-xs text-gray-500">{s.label}</div>
+          ))}
+        </div>
+        {/* Secondary counts */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+          {[
+            { label: 'Total restaurants', value: counts.total, icon: Store },
+            { label: 'Active', value: counts.active, icon: CheckCircle2 },
+            { label: 'New this month', value: counts.thisMonth, icon: TrendingUp },
+            { label: 'Comp / Churned', value: stats ? `${stats.comped} / ${stats.churned}` : '—', icon: XCircle },
+          ].map(s => (
+            <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+              <s.icon className="w-4 h-4 text-gray-400 shrink-0" />
+              <div>
+                <div className="text-lg font-bold text-gray-900">{s.value}</div>
+                <div className="text-xs text-gray-500">{s.label}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Table */}
@@ -169,6 +216,7 @@ export default function SuperAdminDashboard() {
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Restaurant</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Subdomain</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Plan</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Billing</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Joined</th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
@@ -203,6 +251,9 @@ export default function SuperAdminDashboard() {
                         <option value="pro">Pro</option>
                         <option value="enterprise">Enterprise</option>
                       </select>
+                    </td>
+                    <td className="px-5 py-4">
+                      <BillingBadge b={stats?.billing?.[r.id]} />
                     </td>
                     <td className="px-5 py-4">
                       <button
