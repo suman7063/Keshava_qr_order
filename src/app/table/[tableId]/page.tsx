@@ -64,7 +64,7 @@ export default function TablePage() {
         ])
         setCategories(Array.isArray(cats) ? cats : [])
         setMenuItems(Array.isArray(items) ? items : [])
-        setShowMenuImages(settings.show_menu_images ?? true)
+        setShowMenuImages(settings?.show_menu_images ?? true)
         if (Array.isArray(cats) && cats.length > 0) setActiveCategory(cats[0].id)
         // Restore the table join code from localStorage if session was already started
         const saved = localStorage.getItem(`otp-${tableId}`)
@@ -113,36 +113,49 @@ export default function TablePage() {
   const canRequestBill = sessionOrders.some(o => !['pending', 'cancelled'].includes(o.status))
 
   async function handlePlaceOrderClick() {
-    if (cart.length === 0) return
-    setDrawer('none')
-    const res = await fetch(`/api/sessions?table_id=${tableId}&restaurant_id=${restaurantId}`)
-    const { session: existing } = await res.json()
-    if (existing) {
-      setSession(existing)
-      setBillRequested(existing.bill_requested || false)
-      const savedOtp = localStorage.getItem(`otp-${tableId}`)
-      if (savedOtp) {
-        // Session creator — place order directly
-        await placeOrder(existing, currentCustomerName || existing.customer_name || 'Customer')
+    if (cart.length === 0 || placing) return
+    setPlacing(true)
+    try {
+      const res = await fetch(`/api/sessions?table_id=${tableId}&restaurant_id=${restaurantId}`)
+      const data = res.ok ? await res.json() : {}
+      const existing = data.session
+      if (existing) {
+        setSession(existing)
+        setBillRequested(existing.bill_requested || false)
+        const savedOtp = localStorage.getItem(`otp-${tableId}`)
+        if (savedOtp) {
+          // Session creator — place order directly
+          await placeOrder(existing, currentCustomerName || existing.customer_name || 'Customer')
+        } else {
+          // New person joining — ask for OTP
+          setDrawer('verify-otp')
+        }
       } else {
-        // New person joining — ask for OTP
-        setDrawer('verify-otp')
+        setDrawer('customer-info')
       }
-    } else {
-      setDrawer('customer-info')
+    } catch {
+      setOtpError('Network error. Please try again.')
+    } finally {
+      setPlacing(false)
     }
   }
 
   async function handleCreateSession() {
     if (!name || !phone) return
     setPlacing(true)
+    setOtpError('')
     setCurrentCustomerName(name)
     const res = await fetch(`/api/sessions?restaurant_id=${restaurantId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ table_id: tableId, phone, customer_name: name }),
     })
-    const data = await res.json()
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data.session || !data.otp) {
+      setOtpError(data.error || 'Could not start your order. Please try again.')
+      setPlacing(false)
+      return
+    }
     setSession(data.session)
     setGeneratedOtp(data.otp)
     localStorage.setItem(`otp-${tableId}`, data.otp)
@@ -214,7 +227,8 @@ export default function TablePage() {
 
   async function openOrdersPage() {
     const res = await fetch(`/api/sessions?table_id=${tableId}&restaurant_id=${restaurantId}`)
-    const { session: existing } = await res.json()
+    const data = res.ok ? await res.json() : {}
+    const existing = data.session
     if (existing) {
       setSession(existing)
       setBillRequested(existing.bill_requested || false)
@@ -227,12 +241,17 @@ export default function TablePage() {
     if (!restaurantId) return
     function checkSession() {
       fetch(`/api/sessions?table_id=${tableId}&restaurant_id=${restaurantId}`)
-        .then(r => r.json())
-        .then(({ session: existing }) => {
+        .then(async r => ({ ok: r.ok, body: await r.json().catch(() => null) }))
+        .then(({ ok, body }) => {
+          // Only act on a definitive response. A transient error must NOT wipe
+          // the customer's live session / saved code.
+          if (!ok || !body) return
+          const existing = body.session
           if (existing) {
             setSession(existing)
             setBillRequested(existing.bill_requested || false)
-          } else {
+          } else if (body.session === null) {
+            // Staff closed the table — reset.
             setSession(null)
             setBillRequested(false)
             setSessionOrders([])
@@ -242,6 +261,7 @@ export default function TablePage() {
             setShowOtpBadge(false)
           }
         })
+        .catch(() => {})
     }
 
     checkSession()
@@ -451,6 +471,7 @@ export default function TablePage() {
                     <p className="text-5xl font-bold tracking-widest text-[#1e3a5f]">{generatedOtp}</p>
                     <p className="text-xs text-[#1e3a5f]/50 mt-3">Share this with others at your table</p>
                   </div>
+                  {otpError && <p className="text-red-500 text-sm text-center">{otpError}</p>}
                   <Button size="lg" className="w-full bg-[#1e3a5f] hover:bg-[#16304d]" loading={placing}
                     onClick={() => session && placeOrder(session, currentCustomerName)}>
                     Confirm & Place Order

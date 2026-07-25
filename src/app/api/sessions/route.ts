@@ -1,7 +1,7 @@
 import { randomInt } from 'crypto'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getRestaurantId } from '@/lib/restaurant'
+import { getRestaurantId, getReadRestaurantId } from '@/lib/restaurant'
 import { requireStaff, requireSessionAccess } from '@/lib/auth'
 
 function generateJoinCode(): string {
@@ -12,9 +12,6 @@ function generateJoinCode(): string {
 const PUBLIC_SESSION_SELECT = 'id, table_id, customer_name, bill_requested, status, started_at, table:restaurant_tables(id, table_number, capacity, status)'
 
 export async function GET(request: Request) {
-  const restaurantId = await getRestaurantId(request)
-  if (!restaurantId) return NextResponse.json({ session: null })
-
   const { searchParams } = new URL(request.url)
   const table_id = searchParams.get('table_id')
   const bill_requested = searchParams.get('bill_requested')
@@ -35,8 +32,11 @@ export async function GET(request: Request) {
     return NextResponse.json(data)
   }
 
-  // Customer view: is there an active session at this table? (sanitized)
+  // Active session at a table (sanitized). Customers pass ?restaurant_id;
+  // staff (admin tables view) resolve to their own restaurant.
   if (!table_id) return NextResponse.json({ session: null })
+  const restaurantId = await getReadRestaurantId(request)
+  if (!restaurantId) return NextResponse.json({ session: null })
 
   const db = createAdminClient()
   const { data, error } = await db

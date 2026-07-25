@@ -54,16 +54,26 @@ export async function POST(request: Request) {
   // Resolve the tenant: prefer our own record, fall back to the notes.
   const { data: record } = await db
     .from('subscriptions')
-    .select('id, restaurant_id')
+    .select('id, restaurant_id, current_period_end, plan')
     .eq('provider_subscription_id', sub.id)
     .maybeSingle()
   const restaurantId = record?.restaurant_id ?? sub.notes?.restaurant_id
   if (!restaurantId) return NextResponse.json({ received: true })
 
   const status = STATUS_MAP[sub.status] ?? sub.status
+  const plan = (record?.plan as string) || 'pro'
   const current_period_end = sub.current_end
     ? new Date(sub.current_end * 1000).toISOString()
     : null
+
+  // Ordering guard: Razorpay retries and can deliver out of order. Ignore an
+  // event whose billing period is OLDER than what we've already stored, so a
+  // late "cancelled" can't knock a renewed (later-period) subscription offline.
+  const isStale =
+    !!record?.current_period_end &&
+    !!current_period_end &&
+    new Date(current_period_end) < new Date(record.current_period_end)
+  if (isStale) return NextResponse.json({ received: true, ignored: 'stale' })
 
   if (record) {
     await db
@@ -71,21 +81,25 @@ export async function POST(request: Request) {
       .update({ status, current_period_end, updated_at: new Date().toISOString() })
       .eq('id', record.id)
   } else {
-    await db.from('subscriptions').insert({
+    // First delivery — tolerate a concurrent duplicate via the unique index.
+    const { error: insErr } = await db.from('subscriptions').insert({
       restaurant_id: restaurantId,
-      plan: 'pro',
+      plan,
       status,
       provider: 'razorpay',
       provider_subscription_id: sub.id,
       current_period_end,
     })
+    if (insErr && insErr.code !== '23505') {
+      return NextResponse.json({ error: 'Could not record subscription' }, { status: 500 })
+    }
   }
 
-  // Paid subscription live → Pro (and the onboarding trial no longer applies).
+  // Paid subscription live → apply the plan (onboarding trial no longer applies).
   if (status === 'active') {
     await db
       .from('restaurants')
-      .update({ plan: 'pro', trial_ends_at: null })
+      .update({ plan, trial_ends_at: null })
       .eq('id', restaurantId)
   }
 

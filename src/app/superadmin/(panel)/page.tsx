@@ -46,30 +46,42 @@ export default function SuperAdminDashboard() {
   async function toggleStatus(r: Restaurant) {
     setUpdating(r.id)
     const newStatus = r.status === 'active' ? 'inactive' : 'active'
-    await fetch(`/api/restaurants/${r.id}`, {
+    const res = await fetch(`/api/restaurants/${r.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
     })
-    setRestaurants(prev => prev.map(x => x.id === r.id ? { ...x, status: newStatus } : x))
+    if (res.ok) {
+      setRestaurants(prev => prev.map(x => x.id === r.id ? { ...x, status: newStatus } : x))
+    } else {
+      alert('Could not update status.')
+    }
     setUpdating(null)
   }
 
   async function changePlan(r: Restaurant, plan: string) {
     setUpdating(r.id)
-    await fetch(`/api/restaurants/${r.id}`, {
+    const res = await fetch(`/api/restaurants/${r.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan }),
     })
-    setRestaurants(prev => prev.map(x => x.id === r.id ? { ...x, plan } : x))
+    if (res.ok) {
+      setRestaurants(prev => prev.map(x => x.id === r.id ? { ...x, plan } : x))
+    } else {
+      alert('Could not change plan.')
+    }
     setUpdating(null)
   }
 
   async function deleteRestaurant(id: string) {
     setUpdating(id)
-    await fetch(`/api/restaurants/${id}`, { method: 'DELETE' })
-    setRestaurants(prev => prev.filter(x => x.id !== id))
+    const res = await fetch(`/api/restaurants/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      setRestaurants(prev => prev.filter(x => x.id !== id))
+    } else {
+      alert('Could not delete restaurant.')
+    }
     setConfirmDelete(null)
     setUpdating(null)
   }

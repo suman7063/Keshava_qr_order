@@ -17,7 +17,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const updates: Record<string, string> = {}
+  const updates: Record<string, string | null> = {}
   if ('status' in body) {
     if (!['active', 'inactive', 'suspended'].includes(body.status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
@@ -29,6 +29,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
     }
     updates.plan = body.plan
+    // A superadmin-granted plan is not a trial — clear any stale trial date so
+    // effectivePlan() doesn't silently downgrade it back to free.
+    updates.trial_ends_at = null
   }
   if ('name' in body && body.name?.trim()) updates.name = body.name.trim().slice(0, 200)
 

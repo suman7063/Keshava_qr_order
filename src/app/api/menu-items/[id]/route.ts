@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/auth'
-import { ITEM_FIELDS } from '@/lib/validation'
+import { ITEM_FIELDS, validateMenuItemFields } from '@/lib/validation'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireStaff(request, { adminOnly: true })
@@ -21,9 +21,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
-  if ('price' in updates && (Number(updates.price) < 0 || Number.isNaN(Number(updates.price)))) {
-    return NextResponse.json({ error: 'Invalid price' }, { status: 400 })
-  }
+  const invalid = validateMenuItemFields(updates)
+  if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
   if ('category_id' in updates) {
     const { data: category } = await ctx.db
       .from('menu_categories')

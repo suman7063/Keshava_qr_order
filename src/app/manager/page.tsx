@@ -193,11 +193,18 @@ export default function ManagerPage() {
     const body: Record<string, unknown> = { status: 'confirmed' }
     if (itemsToRemove.length) body.remove_item_ids = itemsToRemove
 
-    await fetch(`/api/orders/${order.id}`, {
+    const res = await fetch(`/api/orders/${order.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || 'Could not accept the order.')
+      setUpdatingId(null)
+      return
+    }
+    // Only print the kitchen ticket once the server has confirmed the order.
     const modifiedOrder = {
       ...order,
       items: order.items?.filter(i => !itemsToRemove.includes(i.id)),

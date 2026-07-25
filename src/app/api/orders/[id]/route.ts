@@ -29,7 +29,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   // Remove specific items and recalculate total
   if (Array.isArray(remove_item_ids) && remove_item_ids.length) {
-    await ctx.db.from('order_items').delete().in('id', remove_item_ids).eq('order_id', id)
+    const ids = remove_item_ids.filter(x => typeof x === 'string').slice(0, 100)
+    if (!ids.length) return NextResponse.json({ error: 'Invalid item ids' }, { status: 400 })
+    await ctx.db.from('order_items').delete().in('id', ids).eq('order_id', id)
     const { data: remaining } = await ctx.db.from('order_items').select('total_price').eq('order_id', id)
     const newTotal = (remaining || []).reduce((sum, i) => sum + i.total_price, 0)
     await ctx.db.from('orders').update({ total_amount: newTotal }).eq('id', id)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { getOwnRestaurantId } from '@/lib/restaurant'
 import { requireStaff } from '@/lib/auth'
 
 const PUBLIC_FIELDS = 'id, name, subdomain, phone, address, logo_url, primary_color, status'
@@ -28,12 +29,7 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    const { data: roles } = await db
-      .from('user_roles')
-      .select('restaurant_id')
-      .eq('user_id', user.id)
-      .not('restaurant_id', 'is', null)
-    const rid = roles?.[0]?.restaurant_id
+    const rid = await getOwnRestaurantId(user.id)
     if (rid) {
       const { data } = await db
         .from('restaurants')

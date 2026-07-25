@@ -41,3 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 supabase/.temp
+
+# Razorpay key exports — never commit
+rzp-key*.csv
+*.csv

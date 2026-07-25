@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getRestaurantId } from '@/lib/restaurant'
+import { getRestaurantId, pickStaffRestaurant } from '@/lib/restaurant'
 
 export type StaffRole = 'admin' | 'manager' | 'superadmin'
 
@@ -50,18 +50,26 @@ export async function requireStaff(
   const db = createAdminClient()
   const { data: roles } = await db
     .from('user_roles')
-    .select('role, restaurant_id')
+    .select('role, restaurant_id, created_at')
     .eq('user_id', user.id)
 
   const rows = roles ?? []
   const isSuperadmin = rows.some(r => r.role === 'superadmin')
 
-  // The staff member's own restaurant (prefer an admin role, then manager).
-  const staffRow =
-    rows.find(r => r.restaurant_id && r.role === 'admin') ??
-    rows.find(r => r.restaurant_id && r.role === 'manager')
+  // A superadmin can act cross-tenant when they explicitly target a restaurant.
+  const hasExplicitTarget =
+    new URL(request.url).searchParams.has('restaurant_id') ||
+    new URL(request.url).searchParams.has('restaurant')
+  if (isSuperadmin && hasExplicitTarget) {
+    const restaurantId = await getRestaurantId(request)
+    if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
+    return { user, role: 'superadmin', restaurantId, db }
+  }
 
-  if (staffRow?.restaurant_id) {
+  // The staff member's own restaurant (deterministic: admin > manager, oldest).
+  const staffRow = pickStaffRestaurant(rows)
+
+  if (staffRow) {
     if (opts.adminOnly && staffRow.role !== 'admin' && !isSuperadmin) {
       return forbidden('Admin access required')
     }
@@ -138,15 +146,22 @@ export async function requireSessionAccess(
   if (!session || session.status !== 'active') {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
   }
-  if (session.otp_attempts >= 10) {
-    return NextResponse.json({ error: 'Too many attempts' }, { status: 429 })
-  }
+
+  // The correct code ALWAYS works (and resets the counter). This means a
+  // stranger spamming wrong guesses can never lock out the real diners who
+  // hold the code — it only caps how many WRONG guesses an attacker can make.
   if (session.otp !== provided) {
+    if (session.otp_attempts >= 10) {
+      return NextResponse.json({ error: 'Too many attempts. Please ask staff to reopen the table.' }, { status: 429 })
+    }
     await db
       .from('table_sessions')
       .update({ otp_attempts: session.otp_attempts + 1 })
       .eq('id', session.id)
     return unauthorized('Invalid session code')
+  }
+  if (session.otp_attempts > 0) {
+    await db.from('table_sessions').update({ otp_attempts: 0 }).eq('id', session.id)
   }
 
   return {

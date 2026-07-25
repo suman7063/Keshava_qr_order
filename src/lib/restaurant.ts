@@ -44,6 +44,32 @@ export async function getRestaurantId(request: Request): Promise<string | null> 
   return data?.id ?? null
 }
 
+type RoleRow = { role: string; restaurant_id: string | null; created_at?: string | null }
+
+/**
+ * Deterministically pick a staff member's "own" restaurant from their roles.
+ * Priority: admin > manager, then oldest role first. Used by BOTH the read
+ * and write paths so a multi-restaurant user never gets a split view.
+ */
+export function pickStaffRestaurant(rows: RoleRow[]): { restaurant_id: string; role: string } | null {
+  const rank = (r: string) => (r === 'admin' ? 0 : r === 'manager' ? 1 : 2)
+  const sorted = rows
+    .filter(r => r.restaurant_id)
+    .sort((a, b) => rank(a.role) - rank(b.role) || String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
+  const top = sorted[0]
+  return top?.restaurant_id ? { restaurant_id: top.restaurant_id, role: top.role } : null
+}
+
+/** The logged-in staff member's own restaurant id (deterministic), or null. */
+export async function getOwnRestaurantId(userId: string): Promise<string | null> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('user_roles')
+    .select('role, restaurant_id, created_at')
+    .eq('user_id', userId)
+  return pickStaffRestaurant(data ?? [])?.restaurant_id ?? null
+}
+
 /**
  * Tenant resolution for dual-use read endpoints (menu, categories, settings)
  * that both customers AND staff hit:
@@ -60,13 +86,8 @@ export async function getReadRestaurantId(request: Request): Promise<string | nu
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    const admin = createAdminClient()
-    const { data: roles } = await admin
-      .from('user_roles')
-      .select('restaurant_id')
-      .eq('user_id', user.id)
-      .not('restaurant_id', 'is', null)
-    if (roles?.[0]?.restaurant_id) return roles[0].restaurant_id
+    const own = await getOwnRestaurantId(user.id)
+    if (own) return own
   }
 
   return getRestaurantId(request)

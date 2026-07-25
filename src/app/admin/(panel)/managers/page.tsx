@@ -94,7 +94,8 @@ export default function ManagersPage() {
 
   async function fetchManagers() {
     const res = await fetch('/api/admin/managers')
-    setManagers(await res.json())
+    const data = res.ok ? await res.json() : []
+    setManagers(Array.isArray(data) ? data : [])
     setLoading(false)
   }
 

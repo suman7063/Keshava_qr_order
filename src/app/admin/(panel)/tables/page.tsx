@@ -125,10 +125,11 @@ export default function TablesPage() {
     setDetailOrders([])
     setDetailLoading(true)
     const res = await fetch(`/api/sessions?table_id=${table.id}`)
-    const { session } = await res.json()
-    if (session) {
-      const ordersRes = await fetch(`/api/orders?session_id=${session.id}`)
-      setDetailOrders(await ordersRes.json())
+    const data = res.ok ? await res.json() : {}
+    if (data.session) {
+      const ordersRes = await fetch(`/api/orders?session_id=${data.session.id}`)
+      const orders = ordersRes.ok ? await ordersRes.json() : []
+      setDetailOrders(Array.isArray(orders) ? orders : [])
     }
     setDetailLoading(false)
   }

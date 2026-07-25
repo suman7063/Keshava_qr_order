@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getReadRestaurantId } from '@/lib/restaurant'
 import { requireStaff } from '@/lib/auth'
 import { effectivePlan } from '@/lib/plans'
-import { ITEM_FIELDS } from '@/lib/validation'
+import { ITEM_FIELDS, validateMenuItemFields } from '@/lib/validation'
 
 // Customers pass ?restaurant_id; staff get their own restaurant.
 export async function GET(request: Request) {
@@ -45,9 +45,8 @@ export async function POST(request: Request) {
   if (!insert.name || !insert.category_id || insert.price === undefined) {
     return NextResponse.json({ error: 'name, category_id and price are required' }, { status: 400 })
   }
-  if (Number(insert.price) < 0 || Number.isNaN(Number(insert.price))) {
-    return NextResponse.json({ error: 'Invalid price' }, { status: 400 })
-  }
+  const invalid = validateMenuItemFields(insert)
+  if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
 
   // The category must belong to this restaurant.
   const { data: category } = await ctx.db

@@ -47,7 +47,8 @@ export default function SessionsPage() {
   async function fetchSessions() {
     setLoading(true)
     const res = await fetch('/api/sessions/all')
-    setSessions(await res.json())
+    const data = res.ok ? await res.json() : []
+    setSessions(Array.isArray(data) ? data : [])
     setLoading(false)
   }
 
@@ -58,7 +59,8 @@ export default function SessionsPage() {
     setDetailOrders([])
     setDetailLoading(true)
     const res = await fetch(`/api/orders?session_id=${s.id}`)
-    setDetailOrders(await res.json())
+    const data = res.ok ? await res.json() : []
+    setDetailOrders(Array.isArray(data) ? data : [])
     setDetailLoading(false)
   }
 
