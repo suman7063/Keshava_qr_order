@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireStaff, auditLog } from '@/lib/auth'
-import { createRazorpay, razorpayConfigured } from '@/lib/razorpay'
+import { createRazorpay, razorpayConfigured, proPlanId } from '@/lib/razorpay'
 
 // Start a Pro subscription for the current restaurant (admin only).
 // Returns the Razorpay subscription id for the client-side Checkout.
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   let subscription: { id: string }
   try {
     subscription = await razorpay.subscriptions.create({
-      plan_id: process.env.RAZORPAY_PLAN_ID_PRO!,
+      plan_id: proPlanId()!,
       total_count: 120, // 10 years of monthly cycles; cancel anytime
       customer_notify: 1,
       notes: { restaurant_id: ctx.restaurantId, restaurant_name: restaurant.name },
