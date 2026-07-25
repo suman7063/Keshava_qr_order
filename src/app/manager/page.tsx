@@ -531,7 +531,7 @@ export default function ManagerPage() {
                 ))}
               </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto scrollbar-none">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>

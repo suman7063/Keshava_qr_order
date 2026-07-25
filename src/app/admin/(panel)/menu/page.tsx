@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Leaf, Download } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download, Tags } from 'lucide-react'
+import { VegMark } from '@/components/ui/VegMark'
 import { uploadImage, deleteImage } from '@/lib/uploadImage'
 import { Toast, useToast } from '@/components/ui/Toast'
+import { CATEGORY_SUGGESTIONS } from '@/lib/categories'
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([])
@@ -109,10 +111,22 @@ export default function MenuPage() {
     } else {
       showToast(`Category "${catName.trim()}" created!`)
       setCatName('')
-      setShowCatModal(false)
       fetchData()
     }
     setSavingCat(false)
+  }
+
+  async function deleteCategory(id: string, name: string) {
+    if (!confirm(`Delete category "${name}"?`)) return
+    const res = await fetch(`/api/menu-categories/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      showToast(data.error || 'Could not delete category.')
+    } else {
+      showToast(`Category "${name}" deleted.`)
+      if (activeCategory === id) setActiveCategory(null)
+      fetchData()
+    }
   }
 
   function exportCSV() {
@@ -235,12 +249,17 @@ export default function MenuPage() {
   return (
     <div>
       {toast && <Toast message={toast} onDismiss={dismissToast} />}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Menu</h1>
           <p className="text-gray-500 text-sm mt-0.5">Manage menu items and categories</p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Manage categories */}
+          <button onClick={() => { setShowCatModal(true); setCatError('') }}
+            className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
+            <Tags className="w-4 h-4" /> Categories
+          </button>
           {/* Export buttons */}
           <div className="flex items-center gap-1 border border-gray-200 rounded-xl overflow-hidden">
             <button onClick={exportCSV}
@@ -271,7 +290,7 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* Category Tabs */}
+      {/* Category filter tabs */}
       <div className="flex gap-2 mb-6 border-b border-gray-200 pb-4 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveCategory(null)}
@@ -288,17 +307,11 @@ export default function MenuPage() {
             {cat.name} ({items.filter(i => i.category_id === cat.id).length})
           </button>
         ))}
-        <button
-          onClick={() => { setShowCatModal(true); setCatError('') }}
-          className="whitespace-nowrap shrink-0 px-4 py-2 rounded-full text-sm font-medium text-orange-500 border border-dashed border-orange-300 hover:bg-orange-50 transition-colors"
-        >
-          + Category
-        </button>
       </div>
 
-      {/* Items Table */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* Items — table on desktop, separate cards on mobile */}
+      <div className="md:bg-white md:rounded-xl md:border md:border-gray-100 md:shadow-sm md:overflow-hidden">
+        <div className="hidden md:block overflow-x-auto scrollbar-none">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
@@ -323,7 +336,7 @@ export default function MenuPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="font-medium text-gray-900 whitespace-nowrap">{item.name}</p>
-                        {item.is_vegetarian && <Leaf className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                        <VegMark veg={item.is_vegetarian} />
                       </div>
                       {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1 max-w-[140px]">{item.description}</p>}
                     </div>
@@ -357,6 +370,49 @@ export default function MenuPage() {
           </tbody>
         </table>
         </div>
+
+        {/* Mobile cards — each item is its own card */}
+        <div className="md:hidden space-y-3">
+          {filteredItems.map(item => (
+            <div key={item.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex gap-3">
+              {showMenuImages && (
+                item.image_url
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={item.image_url} alt={item.name} className="w-14 h-14 rounded-lg object-cover shrink-0 border border-gray-100" />
+                  : <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-xl">🍽</div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-semibold text-gray-900 truncate">{item.name}</p>
+                      <VegMark veg={item.is_vegetarian} />
+                    </div>
+                    <p className="text-xs text-gray-400">{item.category?.name}</p>
+                  </div>
+                  <span className="font-semibold text-orange-600 whitespace-nowrap">{formatCurrency(item.price)}</span>
+                </div>
+                {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>}
+                <div className="flex items-center justify-between mt-2">
+                  <button onClick={() => toggleAvailable(item)}>
+                    <Badge variant={item.is_available ? 'success' : 'secondary'}>
+                      {item.is_available ? 'Available' : 'Unavailable'}
+                    </Badge>
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => deleteItem(item.id)}>
+                      <Trash2 className="w-4 h-4 text-red-400" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {filteredItems.length === 0 && (
           <div className="text-center py-12 text-gray-400">No items in this category</div>
         )}
@@ -434,29 +490,52 @@ export default function MenuPage() {
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-            <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
-              value={form.category_id}
-              onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
-            >
-              <option value="">Select category</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
+            {categories.length === 0 ? (
+              <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                <p className="text-xs text-amber-700">No categories yet. Create one first to add items to it.</p>
+                <button type="button"
+                  onClick={() => { setShowModal(false); setShowCatModal(true); setCatError('') }}
+                  className="shrink-0 text-xs font-semibold text-orange-600 hover:text-orange-700 whitespace-nowrap">
+                  + New Category
+                </button>
+              </div>
+            ) : (
+              <select
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
+                value={form.category_id}
+                onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
+              >
+                <option value="">Select category</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            )}
           </div>
-          <div className="col-span-2 flex gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.is_vegetarian} onChange={e => setForm(f => ({ ...f, is_vegetarian: e.target.checked }))} className="rounded" />
-              <span className="text-sm text-gray-700">Vegetarian</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.is_vegan} onChange={e => setForm(f => ({ ...f, is_vegan: e.target.checked }))} className="rounded" />
-              <span className="text-sm text-gray-700">Vegan</span>
-            </label>
+          <div className="col-span-2 space-y-3">
+            {/* Food type — one clean choice: Veg / Vegan / Non-veg */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Food type *</label>
+              <div className="flex gap-2 flex-wrap">
+                {([
+                  { key: 'veg', label: 'Veg', veg: true, vegan: false, active: form.is_vegetarian && !form.is_vegan, ring: 'border-green-500 bg-green-50 text-green-700', dot: 'green' },
+                  { key: 'vegan', label: 'Vegan', veg: true, vegan: true, active: form.is_vegetarian && form.is_vegan, ring: 'border-green-600 bg-green-50 text-green-800', dot: 'green' },
+                  { key: 'nonveg', label: 'Non-veg', veg: false, vegan: false, active: !form.is_vegetarian, ring: 'border-red-500 bg-red-50 text-red-700', dot: 'red' },
+                ] as const).map(opt => (
+                  <button key={opt.key} type="button"
+                    onClick={() => setForm(f => ({ ...f, is_vegetarian: opt.veg, is_vegan: opt.vegan }))}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 text-sm font-semibold transition-all ${opt.active ? opt.ring : 'border-gray-200 text-gray-500'}`}>
+                    <span className={`w-3.5 h-3.5 border-2 rounded-sm flex items-center justify-center ${opt.dot === 'green' ? 'border-green-600' : 'border-red-600'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${opt.dot === 'green' ? 'bg-green-600' : 'bg-red-600'}`} />
+                    </span>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.is_available} onChange={e => setForm(f => ({ ...f, is_available: e.target.checked }))} className="rounded" />
-              <span className="text-sm text-gray-700">Available</span>
+              <span className="text-sm text-gray-700">Available for ordering</span>
             </label>
           </div>
           <div className="col-span-2 flex gap-3 pt-2">
@@ -466,23 +545,67 @@ export default function MenuPage() {
         </div>
       </Modal>
 
-      {/* Add Category Modal */}
-      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title="Add Category">
-        <div className="space-y-4">
+      {/* Manage Categories Modal */}
+      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title="Manage Categories">
+        <div className="space-y-5">
+          {/* Existing categories with delete */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category name *</label>
-            <input
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
-              value={catName}
-              onChange={e => setCatName(e.target.value)}
-              placeholder="e.g. Starters"
-              maxLength={100}
-            />
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Your categories</p>
+            {categories.length === 0 ? (
+              <p className="text-sm text-gray-400">No categories yet. Add one below.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {categories.map(cat => {
+                  const count = items.filter(i => i.category_id === cat.id).length
+                  return (
+                    <div key={cat.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-sm font-medium text-gray-800">{cat.name}
+                        <span className="text-xs text-gray-400 ml-2">{count} item{count === 1 ? '' : 's'}</span>
+                      </span>
+                      <button onClick={() => deleteCategory(cat.id, cat.name)}
+                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
-          {catError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{catError}</div>}
-          <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setShowCatModal(false)}>Cancel</Button>
-            <Button className="flex-1" loading={savingCat} onClick={addCategory}>Add Category</Button>
+
+          {/* Add new — presets + custom */}
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Add a category</p>
+            {(() => {
+              const existing = new Set(categories.map(c => c.name.toLowerCase()))
+              const presets = CATEGORY_SUGGESTIONS.filter(s => !existing.has(s.toLowerCase()))
+              if (presets.length === 0) return null
+              return (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {presets.map(s => (
+                    <button key={s} type="button" onClick={() => setCatName(s)}
+                      className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${catName === s ? 'bg-orange-500 text-white border-orange-500' : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'}`}>
+                      + {s}
+                    </button>
+                  ))}
+                </div>
+              )
+            })()}
+            <div className="flex gap-2">
+              <input
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
+                value={catName}
+                onChange={e => setCatName(e.target.value)}
+                placeholder="Pick a chip or type a custom name"
+                maxLength={100}
+              />
+              <Button loading={savingCat} onClick={addCategory} disabled={!catName.trim()}>Add</Button>
+            </div>
+            {catError && <div className="mt-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-2">{catError}</div>}
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Button variant="outline" onClick={() => setShowCatModal(false)}>Done</Button>
           </div>
         </div>
       </Modal>
@@ -490,7 +613,7 @@ export default function MenuPage() {
       {/* PDF Template Picker Modal */}
       <Modal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} title="Choose PDF Template" size="lg">
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {(pdfLib?.PDF_TEMPLATES ?? []).map(t => {
               const isSelected = pdfTemplateId === t.id
               const previewHtml = pdfLib!.getPdfHTML(
@@ -507,17 +630,18 @@ export default function MenuPage() {
               )
               return (
                 <button key={t.id} onClick={() => setPdfTemplateId(t.id)}
-                  className={`rounded-2xl border-2 flex flex-col items-center gap-2 pb-3 overflow-hidden transition-all cursor-pointer ${isSelected ? 'border-orange-400 shadow-md' : 'border-gray-100 hover:border-gray-300'}`}>
-                  {/* Actual scaled preview */}
+                  className={`min-w-0 rounded-2xl border-2 flex flex-col items-center gap-2 pb-3 overflow-hidden transition-all cursor-pointer ${isSelected ? 'border-orange-400 shadow-md' : 'border-gray-100 hover:border-gray-300'}`}>
+                  {/* Responsive scaled preview — the iframe is 4× the container
+                      and scaled to 0.25, so it always fills the card width. */}
                   <div className="w-full overflow-hidden rounded-t-xl" style={{ height: 200, position: 'relative' }}>
                     <iframe
                       srcDoc={previewHtml}
                       style={{
                         overflow: 'hidden',
-                        width: 794,
-                        height: 1000,
+                        width: '400%',
+                        height: '400%',
                         border: 'none',
-                        transform: 'scale(0.245)',
+                        transform: 'scale(0.25)',
                         transformOrigin: 'top left',
                         pointerEvents: 'none',
                       }}

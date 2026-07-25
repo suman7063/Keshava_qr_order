@@ -218,8 +218,8 @@ export default function ManagersPage() {
           <p className="text-gray-400 text-sm mt-1">Click "Add Manager" to create one</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto scrollbar-none">
+          <table className="w-full min-w-120">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 whitespace-nowrap">Manager</th>

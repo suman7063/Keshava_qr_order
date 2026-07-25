@@ -30,6 +30,16 @@ body {
   overflow-x: hidden;
 }
 
+/* Hide scrollbars visually while keeping scroll functionality.
+   (overflow-x-auto containers otherwise show a stray vertical scrollbar.) */
+.scrollbar-none {
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* old Edge/IE */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;               /* Chrome / Safari */
+}
+
 button, label, input[type="color"], select {
   cursor: pointer !important;
 }

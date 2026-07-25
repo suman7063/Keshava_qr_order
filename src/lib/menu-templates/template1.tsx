@@ -1,7 +1,8 @@
 import Image from 'next/image'
 import { MenuItem, CartItem } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Minus, Leaf } from 'lucide-react'
+import { Plus, Minus } from 'lucide-react'
+import { VegMark } from '@/components/ui/VegMark'
 
 interface Props {
   items: MenuItem[]
@@ -36,7 +37,7 @@ export default function MenuTemplate1({ items, cart, addToCart, removeFromCart }
             <div className="p-3">
               <div className="flex items-start gap-1 mb-0.5">
                 <h3 className="font-bold text-gray-900 text-sm leading-tight flex-1">{item.name}</h3>
-                {item.is_vegetarian && <Leaf className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />}
+                <VegMark veg={item.is_vegetarian} className="mt-0.5" />
               </div>
               {item.description && <p className="text-xs text-gray-400 line-clamp-2 mb-2">{item.description}</p>}
               <div className="flex items-center justify-between mt-1">

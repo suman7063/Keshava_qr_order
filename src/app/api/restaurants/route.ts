@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireSuperadmin, auditLog } from '@/lib/auth'
 import { TRIAL_DAYS } from '@/lib/plans'
 import { RESERVED_SUBDOMAINS } from '@/lib/validation'
+import { DEFAULT_CATEGORIES } from '@/lib/categories'
 
 // GET /api/restaurants — list all (superadmin only)
 export async function GET() {
@@ -97,6 +98,16 @@ export async function POST(request: Request) {
   await db
     .from('restaurant_settings')
     .insert({ restaurant_id: restaurant.id, show_menu_images: true })
+
+  // Seed standard categories so the menu starts consistent, not empty.
+  await db.from('menu_categories').insert(
+    DEFAULT_CATEGORIES.map((name, i) => ({
+      restaurant_id: restaurant.id,
+      name,
+      display_order: i,
+      is_active: true,
+    }))
+  )
 
   const { error: roleError } = await db
     .from('user_roles')

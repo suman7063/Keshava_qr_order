@@ -116,8 +116,8 @@ export default function SessionsPage() {
             <p className="text-gray-400 font-medium">No active sessions</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto scrollbar-none">
+            <table className="w-full text-sm min-w-150">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Table</th>
@@ -173,8 +173,8 @@ export default function SessionsPage() {
             <p className="text-gray-400 font-medium">No closed sessions yet</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto scrollbar-none">
+            <table className="w-full text-sm min-w-150">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Table</th>

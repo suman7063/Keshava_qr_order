@@ -23,6 +23,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
     updates.status = body.status
+    // Record/clear the reason alongside the status.
+    if (body.status === 'suspended') {
+      updates.suspended_reason = typeof body.suspended_reason === 'string'
+        ? body.suspended_reason.slice(0, 500) : null
+    } else {
+      updates.suspended_reason = null
+    }
   }
   if ('plan' in body) {
     if (!['free', 'pro', 'enterprise'].includes(body.plan)) {

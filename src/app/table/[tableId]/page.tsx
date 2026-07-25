@@ -45,27 +45,18 @@ export default function TablePage() {
   useEffect(() => {
     async function load() {
       try {
-        // The table (an unguessable id) carries its own restaurant — resolve it
-        // first, then load that restaurant's menu. Works on any domain, no
-        // subdomain needed.
-        const tableRes = await fetch(`/api/tables/${tableId}`)
-        if (!tableRes.ok) { setLoadError('This table could not be found.'); setLoading(false); return }
-        const tableData = await tableRes.json()
-        const rid = tableData.restaurant_id as string
-        setRestaurantId(rid)
-        if (tableData?.table_number) setTableNumber(tableData.table_number)
-        if (tableData?.restaurant?.name) setRestaurantName(tableData.restaurant.name)
+        // Single round-trip: table + restaurant + menu + categories + settings.
+        const res = await fetch(`/api/table-menu/${tableId}`)
+        if (!res.ok) { setLoadError('This table could not be found.'); setLoading(false); return }
+        const data = await res.json()
 
-        const q = `restaurant_id=${rid}`
-        const [cats, items, settings] = await Promise.all([
-          fetch(`/api/menu-categories?${q}`).then(r => r.json()),
-          fetch(`/api/menu-items?${q}`).then(r => r.json()),
-          fetch(`/api/settings?${q}`).then(r => r.json()),
-        ])
-        setCategories(Array.isArray(cats) ? cats : [])
-        setMenuItems(Array.isArray(items) ? items : [])
-        setShowMenuImages(settings?.show_menu_images ?? true)
-        if (Array.isArray(cats) && cats.length > 0) setActiveCategory(cats[0].id)
+        setRestaurantId(data.table.restaurant_id)
+        if (data.table?.table_number) setTableNumber(data.table.table_number)
+        if (data.restaurant?.name) setRestaurantName(data.restaurant.name)
+        setCategories(Array.isArray(data.categories) ? data.categories : [])
+        setMenuItems(Array.isArray(data.items) ? data.items : [])
+        setShowMenuImages(data.settings?.show_menu_images ?? true)
+        if (Array.isArray(data.categories) && data.categories.length > 0) setActiveCategory(data.categories[0].id)
         // Restore the table join code from localStorage if session was already started
         const saved = localStorage.getItem(`otp-${tableId}`)
         if (saved) { setGeneratedOtp(saved); setShowOtpBadge(true) }
