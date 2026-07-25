@@ -1,25 +1,61 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 
-const DEFAULT_SUBDOMAIN = process.env.DEFAULT_SUBDOMAIN || 'default'
+const PUBLIC_FIELDS = 'id, name, subdomain, phone, address, logo_url, primary_color, status'
 
-// Public restaurant profile for the current subdomain (no owner email).
+// Resolve the "current" restaurant:
+//  1. ?restaurant_id=<uuid> — customer/public flow
+//  2. logged-in staff       — their own restaurant (single-domain admin panel)
+//  3. subdomain header      — legacy fallback
 export async function GET(request: Request) {
-  const subdomain = request.headers.get('x-subdomain') || ''
+  const db = createAdminClient()
+  const { searchParams } = new URL(request.url)
 
+  const ridParam = searchParams.get('restaurant_id')
+  if (ridParam) {
+    const { data } = await db
+      .from('restaurants')
+      .select(PUBLIC_FIELDS)
+      .eq('id', ridParam)
+      .eq('status', 'active')
+      .single()
+    return NextResponse.json(data ?? null)
+  }
+
+  // Logged-in staff → their own restaurant (includes plan/trial for settings)
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const { data: roles } = await db
+      .from('user_roles')
+      .select('restaurant_id')
+      .eq('user_id', user.id)
+      .not('restaurant_id', 'is', null)
+    const rid = roles?.[0]?.restaurant_id
+    if (rid) {
+      const { data } = await db
+        .from('restaurants')
+        .select(`${PUBLIC_FIELDS}, plan, trial_ends_at`)
+        .eq('id', rid)
+        .single()
+      return NextResponse.json(data ?? null)
+    }
+  }
+
+  // Legacy: resolve by subdomain
+  const subdomain = request.headers.get('x-subdomain') || ''
+  const DEFAULT_SUBDOMAIN = process.env.DEFAULT_SUBDOMAIN || 'default'
   if (!subdomain || subdomain === DEFAULT_SUBDOMAIN) {
     return NextResponse.json(null)
   }
-
-  const db = createAdminClient()
   const { data } = await db
     .from('restaurants')
-    .select('id, name, subdomain, phone, address, logo_url, primary_color, status')
+    .select(PUBLIC_FIELDS)
     .eq('subdomain', subdomain)
     .eq('status', 'active')
     .single()
-
   return NextResponse.json(data ?? null)
 }
 

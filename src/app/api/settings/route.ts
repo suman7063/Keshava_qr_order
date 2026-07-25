@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getRestaurantId } from '@/lib/restaurant'
+import { getReadRestaurantId } from '@/lib/restaurant'
 import { requireStaff } from '@/lib/auth'
 
-// Public: the customer menu needs display settings.
+// Customers pass ?restaurant_id; staff get their own restaurant.
 export async function GET(request: Request) {
-  const restaurantId = await getRestaurantId(request)
+  const restaurantId = await getReadRestaurantId(request)
   if (!restaurantId) return NextResponse.json({ show_menu_images: true })
 
   const db = createAdminClient()
@@ -16,9 +16,11 @@ export async function GET(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ show_menu_images: true })
-  return NextResponse.json(data, {
-    headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' },
-  })
+  const isCustomer = new URL(request.url).searchParams.has('restaurant_id')
+  const headers = isCustomer
+    ? { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' }
+    : { 'Cache-Control': 'private, no-store' }
+  return NextResponse.json(data, { headers })
 }
 
 export async function PATCH(request: Request) {

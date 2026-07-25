@@ -34,8 +34,10 @@ async function getUser(): Promise<User | null> {
 }
 
 /**
- * Require a logged-in admin/manager of the restaurant resolved from the
- * request's subdomain. Superadmins pass for any restaurant.
+ * Require a logged-in staff member. The tenant is the restaurant their role
+ * belongs to (single-domain model — one owner = one restaurant), NOT the
+ * request subdomain. Superadmins with no restaurant of their own fall back to
+ * the subdomain / ?restaurant_id= so they can act cross-tenant.
  * Returns a NextResponse (error) when the caller is not allowed.
  */
 export async function requireStaff(
@@ -45,23 +47,40 @@ export async function requireStaff(
   const user = await getUser()
   if (!user) return unauthorized()
 
-  const restaurantId = await getRestaurantId(request)
-  if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
-
   const db = createAdminClient()
   const { data: roles } = await db
     .from('user_roles')
     .select('role, restaurant_id')
     .eq('user_id', user.id)
 
-  const isSuperadmin = roles?.some(r => r.role === 'superadmin')
-  const tenantRole = roles?.find(r => r.restaurant_id === restaurantId)?.role as StaffRole | undefined
+  const rows = roles ?? []
+  const isSuperadmin = rows.some(r => r.role === 'superadmin')
 
-  if (isSuperadmin) return { user, role: 'superadmin', restaurantId, db }
-  if (!tenantRole) return forbidden('No access to this restaurant')
-  if (opts.adminOnly && tenantRole !== 'admin') return forbidden('Admin access required')
+  // The staff member's own restaurant (prefer an admin role, then manager).
+  const staffRow =
+    rows.find(r => r.restaurant_id && r.role === 'admin') ??
+    rows.find(r => r.restaurant_id && r.role === 'manager')
 
-  return { user, role: tenantRole, restaurantId, db }
+  if (staffRow?.restaurant_id) {
+    if (opts.adminOnly && staffRow.role !== 'admin' && !isSuperadmin) {
+      return forbidden('Admin access required')
+    }
+    return {
+      user,
+      role: isSuperadmin ? 'superadmin' : (staffRow.role as StaffRole),
+      restaurantId: staffRow.restaurant_id,
+      db,
+    }
+  }
+
+  // Superadmin without their own restaurant — resolve target from the request.
+  if (isSuperadmin) {
+    const restaurantId = await getRestaurantId(request)
+    if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
+    return { user, role: 'superadmin', restaurantId, db }
+  }
+
+  return forbidden('No restaurant is linked to this account')
 }
 
 /** Require a logged-in superadmin (platform owner). */

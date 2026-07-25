@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getRestaurantId } from '@/lib/restaurant'
 import { requireStaff } from '@/lib/auth'
 
 const UPDATABLE_FIELDS = [
@@ -9,20 +8,22 @@ const UPDATABLE_FIELDS = [
   'card_heading', 'card_subtext', 'card_label',
 ] as const
 
-// Public: the customer QR landing page shows the table number.
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const restaurantId = await getRestaurantId(request)
-  if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
-
+// Public: the customer QR landing page. The tableId (an unguessable UUID) is
+// the entry point — it carries its own restaurant, so no subdomain is needed.
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const db = createAdminClient()
   const { data, error } = await db
     .from('restaurant_tables')
-    .select('id, table_number, capacity, status')
+    .select('id, table_number, capacity, status, restaurant_id, restaurant:restaurants(name, subdomain, status, logo_url, primary_color)')
     .eq('id', id)
-    .eq('restaurant_id', restaurantId)
     .single()
-  if (error) return NextResponse.json({ error: 'Table not found' }, { status: 404 })
+  if (error || !data) return NextResponse.json({ error: 'Table not found' }, { status: 404 })
+
+  const restaurant = data.restaurant as unknown as { status?: string } | null
+  if (restaurant?.status !== 'active') {
+    return NextResponse.json({ error: 'Restaurant not available' }, { status: 404 })
+  }
   return NextResponse.json(data)
 }
 

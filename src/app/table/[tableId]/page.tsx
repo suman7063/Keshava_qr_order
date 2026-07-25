@@ -40,23 +40,32 @@ export default function TablePage() {
   const [showOtpBadge, setShowOtpBadge] = useState(false)
   const [showMenuImages, setShowMenuImages] = useState(true)
   const [restaurantName, setRestaurantName] = useState('')
+  const [restaurantId, setRestaurantId] = useState('')
 
   useEffect(() => {
     async function load() {
       try {
-        const [cats, items, tableData, settings, restaurant] = await Promise.all([
-          fetch('/api/menu-categories').then(r => r.json()),
-          fetch('/api/menu-items').then(r => r.json()),
-          fetch(`/api/tables/${tableId}`).then(r => r.json()),
-          fetch('/api/settings').then(r => r.json()),
-          fetch('/api/restaurants/current').then(r => r.json()).catch(() => null),
+        // The table (an unguessable id) carries its own restaurant — resolve it
+        // first, then load that restaurant's menu. Works on any domain, no
+        // subdomain needed.
+        const tableRes = await fetch(`/api/tables/${tableId}`)
+        if (!tableRes.ok) { setLoadError('This table could not be found.'); setLoading(false); return }
+        const tableData = await tableRes.json()
+        const rid = tableData.restaurant_id as string
+        setRestaurantId(rid)
+        if (tableData?.table_number) setTableNumber(tableData.table_number)
+        if (tableData?.restaurant?.name) setRestaurantName(tableData.restaurant.name)
+
+        const q = `restaurant_id=${rid}`
+        const [cats, items, settings] = await Promise.all([
+          fetch(`/api/menu-categories?${q}`).then(r => r.json()),
+          fetch(`/api/menu-items?${q}`).then(r => r.json()),
+          fetch(`/api/settings?${q}`).then(r => r.json()),
         ])
         setCategories(Array.isArray(cats) ? cats : [])
         setMenuItems(Array.isArray(items) ? items : [])
         setShowMenuImages(settings.show_menu_images ?? true)
-        if (restaurant?.name) setRestaurantName(restaurant.name)
         if (Array.isArray(cats) && cats.length > 0) setActiveCategory(cats[0].id)
-        if (tableData?.table_number) setTableNumber(tableData.table_number)
         // Restore the table join code from localStorage if session was already started
         const saved = localStorage.getItem(`otp-${tableId}`)
         if (saved) { setGeneratedOtp(saved); setShowOtpBadge(true) }
@@ -106,7 +115,7 @@ export default function TablePage() {
   async function handlePlaceOrderClick() {
     if (cart.length === 0) return
     setDrawer('none')
-    const res = await fetch(`/api/sessions?table_id=${tableId}`)
+    const res = await fetch(`/api/sessions?table_id=${tableId}&restaurant_id=${restaurantId}`)
     const { session: existing } = await res.json()
     if (existing) {
       setSession(existing)
@@ -128,7 +137,7 @@ export default function TablePage() {
     if (!name || !phone) return
     setPlacing(true)
     setCurrentCustomerName(name)
-    const res = await fetch('/api/sessions', {
+    const res = await fetch(`/api/sessions?restaurant_id=${restaurantId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ table_id: tableId, phone, customer_name: name }),
@@ -147,7 +156,7 @@ export default function TablePage() {
       menu_item_id: c.menu_item.id,
       quantity: c.quantity,
     }))
-    const res = await fetch('/api/orders', {
+    const res = await fetch(`/api/orders?restaurant_id=${restaurantId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-session-code': getSessionCode() },
       body: JSON.stringify({
@@ -204,7 +213,7 @@ export default function TablePage() {
   }
 
   async function openOrdersPage() {
-    const res = await fetch(`/api/sessions?table_id=${tableId}`)
+    const res = await fetch(`/api/sessions?table_id=${tableId}&restaurant_id=${restaurantId}`)
     const { session: existing } = await res.json()
     if (existing) {
       setSession(existing)
@@ -215,8 +224,9 @@ export default function TablePage() {
   }
 
   useEffect(() => {
+    if (!restaurantId) return
     function checkSession() {
-      fetch(`/api/sessions?table_id=${tableId}`)
+      fetch(`/api/sessions?table_id=${tableId}&restaurant_id=${restaurantId}`)
         .then(r => r.json())
         .then(({ session: existing }) => {
           if (existing) {
@@ -240,7 +250,7 @@ export default function TablePage() {
     // available to anonymous customers — poll the API instead.
     const poll = setInterval(checkSession, 15000)
     return () => clearInterval(poll)
-  }, [tableId])
+  }, [tableId, restaurantId])
 
   const filteredItems = activeCategory
     ? menuItems.filter(i => i.category_id === activeCategory && i.is_available)

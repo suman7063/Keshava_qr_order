@@ -127,6 +127,16 @@ export default function OnboardClient() {
         setLoading(false)
         return
       }
+
+      // Supabase returns a user with an empty `identities` array when the
+      // email is already registered (it won't create a duplicate). Stop here
+      // with a clear message instead of a confusing "Invalid user" later.
+      if (authData.user && (authData.user.identities?.length ?? 0) === 0) {
+        setError('This email is already registered. Please log in instead, or use a different email.')
+        setLoading(false)
+        return
+      }
+
       userId = authData.user?.id ?? null
       setCreatedUserId(userId)
     }

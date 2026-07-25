@@ -171,12 +171,12 @@ export default function SuperAdminDashboard() {
                     </td>
                     <td className="px-5 py-4">
                       <a
-                        href={`https://${r.subdomain}.bicres.com`}
+                        href={`/${r.subdomain}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-blue-700 hover:text-blue-900 font-mono text-xs"
                       >
-                        {r.subdomain}.bicres.com
+                        bicres.com/{r.subdomain}
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     </td>

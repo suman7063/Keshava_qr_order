@@ -49,8 +49,9 @@ export async function updateSession(request: NextRequest, subdomain?: string) {
     return NextResponse.redirect(new URL(loginPath, request.url))
   }
 
-  // Roles are tenant-scoped: an admin of restaurant A has no access on
-  // restaurant B's subdomain. Superadmin passes everywhere.
+  // Single-domain model: this is just a gate that the user HAS the right kind
+  // of role. The actual tenant scoping (which restaurant's data they see) is
+  // enforced per-request in requireStaff, based on the user's own restaurant.
   const { data: roles } = await supabase
     .from('user_roles')
     .select('role, restaurant_id')
@@ -68,19 +69,13 @@ export async function updateSession(request: NextRequest, subdomain?: string) {
 
   if (isSuperadmin) return supabaseResponse
 
-  // Resolve the tenant for this subdomain to match against the user's roles.
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select('id')
-    .eq('subdomain', subdomain || 'default')
-    .single()
+  const hasAdmin = roleRows.some(r => r.role === 'admin')
+  const hasManager = roleRows.some(r => r.role === 'manager' || r.role === 'admin')
 
-  const tenantRole = roleRows.find(r => r.restaurant_id === restaurant?.id)?.role
-
-  if (needsAdmin && tenantRole !== 'admin') {
+  if (needsAdmin && !hasAdmin) {
     return NextResponse.redirect(new URL('/admin/login?error=unauthorized', request.url))
   }
-  if (needsManager && tenantRole !== 'manager' && tenantRole !== 'admin') {
+  if (needsManager && !hasManager) {
     return NextResponse.redirect(new URL('/manager/login?error=unauthorized', request.url))
   }
 
