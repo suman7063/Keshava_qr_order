@@ -15,6 +15,8 @@ function AdminLoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [needsVerify, setNeedsVerify] = useState(false)
+  const [resendMsg, setResendMsg] = useState('')
 
   useEffect(() => {
     if (searchParams.get('error') === 'unauthorized') {
@@ -30,16 +32,35 @@ function AdminLoginForm() {
     })
   }, [searchParams, router])
 
+  async function handleResend() {
+    setResendMsg('')
+    const supabase = createClient()
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/admin/login` },
+    })
+    setResendMsg(resendError ? 'Could not resend. Try again.' : 'Verification email sent! Check your inbox.')
+  }
+
   async function handleLogin(e: React.SyntheticEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setNeedsVerify(false)
+    setResendMsg('')
 
     const supabase = createClient()
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
 
     if (authError) {
-      setError('Incorrect email or password.')
+      const notConfirmed = authError.code === 'email_not_confirmed' || /not confirmed/i.test(authError.message)
+      if (notConfirmed) {
+        setNeedsVerify(true)
+        setError('Your email isn’t verified yet. Check your inbox for the confirmation link.')
+      } else {
+        setError('Incorrect email or password.')
+      }
       setLoading(false)
       return
     }
@@ -99,6 +120,15 @@ function AdminLoginForm() {
           </div>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>
+          )}
+          {needsVerify && (
+            <button type="button" onClick={handleResend}
+              className="w-full text-sm font-medium text-orange-600 hover:text-orange-700 border border-orange-200 rounded-xl py-2.5 hover:bg-orange-50 transition-colors">
+              Resend verification email
+            </button>
+          )}
+          {resendMsg && (
+            <p className={`text-sm text-center ${resendMsg.includes('sent') ? 'text-green-600' : 'text-red-500'}`}>{resendMsg}</p>
           )}
           <Button type="submit" size="lg" className="w-full mt-2" loading={loading}>
             Login as Admin

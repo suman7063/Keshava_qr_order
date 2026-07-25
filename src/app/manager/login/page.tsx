@@ -31,7 +31,10 @@ function ManagerLoginForm() {
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
 
     if (authError) {
-      setError('Incorrect email or password.')
+      const notConfirmed = authError.code === 'email_not_confirmed' || /not confirmed/i.test(authError.message)
+      setError(notConfirmed
+        ? 'Your email isn’t verified yet. Check your inbox for the confirmation link.'
+        : 'Incorrect email or password.')
       setLoading(false)
       return
     }
