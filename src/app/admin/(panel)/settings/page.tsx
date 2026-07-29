@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { uploadImage } from '@/lib/uploadImage'
 import { PLANS, type PlanId } from '@/lib/plans'
-import { Store, Palette, Camera, BadgeCheck, Zap } from 'lucide-react'
+import { Store, Palette, Camera, BadgeCheck, Zap, ImageIcon, MapPin, Clock, Globe } from 'lucide-react'
 
 declare global {
   interface Window {
@@ -31,6 +31,10 @@ interface RestaurantProfile {
   phone: string | null
   address: string | null
   logo_url: string | null
+  cover_image_url: string | null
+  maps_url: string | null
+  opening_hours: string | null
+  accepting_orders: boolean
   primary_color: string | null
   plan?: string
   trial_ends_at?: string | null
@@ -43,11 +47,15 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
   const [error, setError] = useState('')
   const [upgrading, setUpgrading] = useState(false)
   const { toast, showToast, dismissToast } = useToast()
 
-  const [form, setForm] = useState({ name: '', phone: '', address: '', logo_url: '', primary_color: '' })
+  const [form, setForm] = useState({
+    name: '', phone: '', address: '', logo_url: '', primary_color: '',
+    cover_image_url: '', maps_url: '', opening_hours: '', accepting_orders: true,
+  })
 
   useEffect(() => {
     fetch('/api/restaurants/current')
@@ -61,6 +69,10 @@ export default function SettingsPage() {
             address: r.address || '',
             logo_url: r.logo_url || '',
             primary_color: r.primary_color || '',
+            cover_image_url: r.cover_image_url || '',
+            maps_url: r.maps_url || '',
+            opening_hours: r.opening_hours || '',
+            accepting_orders: r.accepting_orders ?? true,
           })
         }
       })
@@ -79,6 +91,20 @@ export default function SettingsPage() {
       showToast('Logo upload failed.')
     } finally {
       setUploadingLogo(false)
+    }
+  }
+
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingCover(true)
+    try {
+      const url = await uploadImage(file, 'covers')
+      setForm(f => ({ ...f, cover_image_url: url }))
+    } catch {
+      showToast('Cover photo upload failed.')
+    } finally {
+      setUploadingCover(false)
     }
   }
 
@@ -252,6 +278,73 @@ export default function SettingsPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
           <textarea rows={2} className={`${inputClass} resize-none`} value={form.address} maxLength={500}
             onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Street, city" />
+        </div>
+
+        {/* ── Public page (bicres.com/subdomain) ── */}
+        <div className="border-t border-gray-100 pt-5">
+          <h2 className="font-semibold text-gray-900 flex items-center gap-2 mb-1">
+            <Globe className="w-4 h-4 text-orange-500" /> Public page
+          </h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Shown to customers at bicres.com/{profile?.subdomain}
+          </p>
+
+          {/* Cover photo */}
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Cover photo</label>
+            {form.cover_image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.cover_image_url} alt="Cover" className="w-full h-36 rounded-xl object-cover border border-gray-200" />
+            ) : (
+              <div className="w-full h-36 rounded-xl bg-gray-100 border border-dashed border-gray-300 flex flex-col items-center justify-center gap-1.5">
+                <ImageIcon className="w-6 h-6 text-gray-400" />
+                <span className="text-xs text-gray-400">Background photo for your public page</span>
+              </div>
+            )}
+            <div className="flex items-center gap-4 mt-2">
+              <label className="text-sm font-medium text-orange-600 hover:text-orange-700 cursor-pointer">
+                {uploadingCover ? 'Uploading…' : form.cover_image_url ? 'Change cover photo' : 'Upload cover photo'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingCover} onChange={handleCoverUpload} />
+              </label>
+              {form.cover_image_url && (
+                <button onClick={() => setForm(f => ({ ...f, cover_image_url: '' }))} className="text-xs text-gray-400 hover:text-red-400">
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1.5">
+                <Clock className="w-3.5 h-3.5" /> Opening hours
+              </label>
+              <input className={inputClass} value={form.opening_hours} maxLength={200} placeholder="10 AM – 11 PM"
+                onChange={e => setForm(f => ({ ...f, opening_hours: e.target.value }))} />
+            </div>
+            <div>
+              <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1.5">
+                <MapPin className="w-3.5 h-3.5" /> Google Maps link
+              </label>
+              <input className={inputClass} value={form.maps_url} maxLength={1000} placeholder="https://maps.app.goo.gl/…"
+                onChange={e => setForm(f => ({ ...f, maps_url: e.target.value }))} />
+            </div>
+          </div>
+
+          {/* Open/closed toggle */}
+          <label className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 cursor-pointer">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Open for dine-in</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                When off, your public page shows &ldquo;Currently closed&rdquo;
+              </p>
+            </div>
+            <button type="button" role="switch" aria-checked={form.accepting_orders}
+              onClick={() => setForm(f => ({ ...f, accepting_orders: !f.accepting_orders }))}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${form.accepting_orders ? 'bg-green-500' : 'bg-gray-300'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${form.accepting_orders ? 'left-5.5' : 'left-0.5'}`} />
+            </button>
+          </label>
         </div>
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>}

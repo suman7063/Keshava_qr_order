@@ -37,8 +37,13 @@ export async function updateSession(request: NextRequest, subdomain?: string) {
   const needsSuperadmin = path.startsWith('/superadmin') && !path.startsWith('/superadmin/login')
 
   if (!needsAdmin && !needsManager && !needsSuperadmin) {
-    // Still refresh the auth session cookie
-    await supabase.auth.getUser()
+    // API routes authenticate themselves (requireStaff / requireSessionAccess)
+    // and the browser client keeps the session cookie fresh, so skip the
+    // auth-server round-trip here — it just adds latency to every /api call.
+    // Other public paths still refresh the session cookie.
+    if (!path.startsWith('/api')) {
+      await supabase.auth.getUser()
+    }
     return supabaseResponse
   }
 

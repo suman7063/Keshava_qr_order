@@ -29,8 +29,15 @@ function forbidden(message = 'Forbidden') {
 
 async function getUser(): Promise<User | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
+  // getClaims() verifies the JWT locally — this project uses ES256 asymmetric
+  // signing keys and the JWKS is cached, so there is no auth-server round-trip
+  // like getUser() makes on every call. We only read id/email downstream; the
+  // tenant scoping still comes from the user_roles query below. The session
+  // cookie is kept fresh by the middleware (page loads) and the browser client.
+  const { data, error } = await supabase.auth.getClaims()
+  const claims = data?.claims as { sub?: string; email?: string } | undefined
+  if (error || !claims?.sub) return null
+  return { id: claims.sub, email: claims.email } as unknown as User
 }
 
 /**

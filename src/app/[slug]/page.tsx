@@ -61,7 +61,7 @@ export default async function RestaurantPage({ params }: Props) {
   const supabase = createPublicClient()
   const { data } = await supabase
     .from('restaurants')
-    .select('id, name, subdomain, phone, status')
+    .select('id, name, subdomain, phone, status, address, logo_url, cover_image_url, maps_url, opening_hours, accepting_orders')
     .eq('subdomain', slug)
     .eq('status', 'active')
     .single()
@@ -75,14 +75,18 @@ export default async function RestaurantPage({ params }: Props) {
         name: restaurant.name,
         url: `https://bicres.com/${restaurant.subdomain}`,
         ...(restaurant.phone && { telephone: restaurant.phone }),
+        ...(restaurant.address && { address: restaurant.address }),
+        ...(restaurant.opening_hours && { openingHours: restaurant.opening_hours }),
+        ...(restaurant.logo_url && { logo: restaurant.logo_url }),
+        ...(restaurant.cover_image_url && { image: restaurant.cover_image_url }),
         hasMenu: {
           '@type': 'Menu',
-          url: `https://bicres.com/${restaurant.subdomain}`,
+          url: `https://bicres.com/${restaurant.subdomain}/menu`,
         },
         servesCuisine: 'Various',
         potentialAction: {
           '@type': 'OrderAction',
-          target: `https://bicres.com/${restaurant.subdomain}`,
+          target: `https://bicres.com/${restaurant.subdomain}/menu`,
         },
       }
     : null

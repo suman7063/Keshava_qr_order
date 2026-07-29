@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getOwnRestaurantId } from '@/lib/restaurant'
 import { requireStaff } from '@/lib/auth'
 
-const PUBLIC_FIELDS = 'id, name, subdomain, phone, address, logo_url, primary_color, status'
+const PUBLIC_FIELDS = 'id, name, subdomain, phone, address, logo_url, cover_image_url, maps_url, opening_hours, accepting_orders, primary_color, status'
 
 // Resolve the "current" restaurant:
 //  1. ?restaurant_id=<uuid> — customer/public flow
@@ -72,6 +72,16 @@ export async function PATCH(request: Request) {
   if (typeof body.phone === 'string') updates.phone = body.phone.slice(0, 20) || null
   if (typeof body.address === 'string') updates.address = body.address.slice(0, 500) || null
   if (typeof body.logo_url === 'string') updates.logo_url = body.logo_url.slice(0, 1000) || null
+  if (typeof body.cover_image_url === 'string') updates.cover_image_url = body.cover_image_url.slice(0, 1000) || null
+  if (typeof body.maps_url === 'string') {
+    const url = body.maps_url.trim().slice(0, 1000)
+    if (url && !/^https:\/\//.test(url)) {
+      return NextResponse.json({ error: 'Maps link must start with https://' }, { status: 400 })
+    }
+    updates.maps_url = url || null
+  }
+  if (typeof body.opening_hours === 'string') updates.opening_hours = body.opening_hours.slice(0, 200) || null
+  if (typeof body.accepting_orders === 'boolean') updates.accepting_orders = body.accepting_orders
   if (typeof body.primary_color === 'string') {
     if (body.primary_color && !/^#[0-9a-fA-F]{6}$/.test(body.primary_color)) {
       return NextResponse.json({ error: 'Invalid color' }, { status: 400 })
@@ -86,7 +96,7 @@ export async function PATCH(request: Request) {
     .from('restaurants')
     .update(updates)
     .eq('id', ctx.restaurantId)
-    .select('id, name, subdomain, phone, address, logo_url, primary_color, status, plan, trial_ends_at')
+    .select(`${PUBLIC_FIELDS}, plan, trial_ends_at`)
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

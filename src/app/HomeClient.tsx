@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   QrCode, ChefHat, LayoutDashboard, Smartphone,
   BarChart3, UtensilsCrossed, ArrowRight, CheckCircle2,
-  FileText, Menu, X, Phone, ScanLine,
+  FileText, Menu, X, Phone, ScanLine, BookOpen, MapPin, Clock, MessageCircle,
 } from 'lucide-react'
 
 // ── Scroll reveal ──────────────────────────────────────────────────
@@ -47,6 +47,18 @@ interface RestaurantData {
   name: string
   subdomain: string
   phone: string | null
+  address: string | null
+  logo_url: string | null
+  cover_image_url: string | null
+  maps_url: string | null
+  opening_hours: string | null
+  accepting_orders: boolean
+}
+
+// wa.me needs a country code — Indian 10-digit numbers get 91 prefixed.
+function whatsappLink(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`
 }
 
 function RestaurantHomePage({ restaurant }: { restaurant: RestaurantData }) {
@@ -62,9 +74,15 @@ function RestaurantHomePage({ restaurant }: { restaurant: RestaurantData }) {
       {/* Nav */}
       <nav className="absolute top-0 left-0 right-0 z-20 px-6 py-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
-            <QrCode className="w-5 h-5 text-white" />
-          </div>
+          {restaurant.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={restaurant.logo_url} alt={restaurant.name}
+              className="w-9 h-9 rounded-xl object-cover border border-white/20" />
+          ) : (
+            <div className="w-9 h-9 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
+              <QrCode className="w-5 h-5 text-white" />
+            </div>
+          )}
           <span className="font-bold text-white text-lg tracking-tight">{restaurant.name}</span>
         </div>
         {restaurant.phone && (
@@ -79,7 +97,7 @@ function RestaurantHomePage({ restaurant }: { restaurant: RestaurantData }) {
       <div className="relative flex-1 flex items-center justify-center min-h-screen overflow-hidden">
         {/* Background image */}
         <Image
-          src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1920&q=85"
+          src={restaurant.cover_image_url || 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1920&q=85'}
           alt={restaurant.name}
           fill
           className="object-cover"
@@ -91,12 +109,20 @@ function RestaurantHomePage({ restaurant }: { restaurant: RestaurantData }) {
         <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-black/30" />
 
         {/* Content */}
-        <div className="relative z-10 text-center px-6 max-w-3xl mx-auto">
-          {/* Badge */}
+        <div className="relative z-10 text-center px-6 max-w-3xl mx-auto py-28">
+          {/* Open/closed badge */}
           <div style={{ opacity: loaded ? 1 : 0, transform: loaded ? 'translateY(0)' : 'translateY(16px)', transition: 'all 0.7s ease 100ms' }}>
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 text-xs font-semibold px-4 py-2 rounded-full mb-8 uppercase tracking-widest">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block animate-pulse" />
-              Open for dine-in
+              {restaurant.accepting_orders ? (
+                <><span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block animate-pulse" /> Open for dine-in</>
+              ) : (
+                <><span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> Currently closed</>
+              )}
+              {restaurant.opening_hours && (
+                <span className="normal-case tracking-normal text-white/55 border-l border-white/20 pl-2 ml-1 flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> {restaurant.opening_hours}
+                </span>
+              )}
             </div>
           </div>
 
@@ -109,13 +135,35 @@ function RestaurantHomePage({ restaurant }: { restaurant: RestaurantData }) {
 
           {/* Tagline */}
           <div style={{ opacity: loaded ? 1 : 0, transform: loaded ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.8s ease 420ms' }}>
-            <p className="text-white/60 text-lg md:text-xl mb-12 font-light">
+            <p className="text-white/60 text-lg md:text-xl mb-10 font-light">
               Scan the QR code at your table to browse the menu &amp; place your order
             </p>
           </div>
 
+          {/* Primary CTAs */}
+          <div style={{ opacity: loaded ? 1 : 0, transform: loaded ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.8s ease 520ms' }}
+            className="flex flex-wrap items-center justify-center gap-3 mb-10">
+            <Link href={`/${restaurant.subdomain}/menu`}
+              className="inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-7 py-3.5 rounded-2xl text-base hover:bg-gray-100 transition-all hover:scale-[1.03] shadow-xl">
+              <BookOpen className="w-5 h-5" /> View Menu
+            </Link>
+            {restaurant.phone && (
+              <>
+                <a href={`tel:${restaurant.phone}`}
+                  className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/25 text-white font-semibold px-6 py-3.5 rounded-2xl text-base hover:bg-white/20 transition-colors">
+                  <Phone className="w-4.5 h-4.5" /> Call us
+                </a>
+                <a href={whatsappLink(restaurant.phone)} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-white font-semibold px-6 py-3.5 rounded-2xl text-base transition-transform hover:scale-[1.03]"
+                  style={{ background: '#25D366' }}>
+                  <MessageCircle className="w-4.5 h-4.5" /> WhatsApp
+                </a>
+              </>
+            )}
+          </div>
+
           {/* QR scan instruction card */}
-          <div style={{ opacity: loaded ? 1 : 0, transform: loaded ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.8s ease 580ms' }}>
+          <div style={{ opacity: loaded ? 1 : 0, transform: loaded ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.8s ease 620ms' }}>
             <div className="inline-flex flex-col sm:flex-row items-center gap-5 bg-white/8 backdrop-blur-md border border-white/15 rounded-3xl px-8 py-6">
               <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shrink-0 shadow-xl">
                 <ScanLine className="w-7 h-7 text-gray-900" />
@@ -129,10 +177,24 @@ function RestaurantHomePage({ restaurant }: { restaurant: RestaurantData }) {
             </div>
           </div>
 
+          {/* Address + directions */}
+          {(restaurant.address || restaurant.maps_url) && (
+            <div style={{ opacity: loaded ? 1 : 0, transition: 'all 0.8s ease 720ms' }} className="mt-8">
+              <a
+                href={restaurant.maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${restaurant.name} ${restaurant.address}`)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-white/50 text-sm hover:text-white/80 transition-colors max-w-xl">
+                <MapPin className="w-4 h-4 shrink-0" />
+                <span>{restaurant.address || 'Get directions'}</span>
+                <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+              </a>
+            </div>
+          )}
+
           {/* Phone (mobile) */}
           {restaurant.phone && (
-            <div style={{ opacity: loaded ? 1 : 0, transition: 'all 0.8s ease 720ms' }}
-              className="mt-8">
+            <div style={{ opacity: loaded ? 1 : 0, transition: 'all 0.8s ease 780ms' }}
+              className="mt-4 sm:hidden">
               <a href={`tel:${restaurant.phone}`}
                 className="inline-flex items-center gap-2 text-white/50 text-sm hover:text-white/80 transition-colors">
                 <Phone className="w-4 h-4" /> {restaurant.phone}
