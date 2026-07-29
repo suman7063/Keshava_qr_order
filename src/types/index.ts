@@ -21,7 +21,7 @@ export type TableStatus = 'available' | 'occupied' | 'reserved'
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'cancelled'
 export type SessionStatus = 'active' | 'closed'
 
-export type QRTemplate = 'classic' | 'minimal' | 'template3' | 'template4'
+export type QRTemplate = 'classic' | 'minimal' | 'template3' | 'template4' | 'template5' | 'template6' | 'template7' | 'template8'
 
 export interface RestaurantTable {
   id: string

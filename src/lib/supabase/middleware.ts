@@ -43,10 +43,10 @@ export async function updateSession(request: NextRequest, subdomain?: string) {
   }
 
   const { data: { user } } = await supabase.auth.getUser()
-  const loginPath = needsSuperadmin ? '/superadmin/login' : needsAdmin ? '/admin/login' : '/manager/login'
 
+  // One unified login for everyone — it routes to the right area by role.
   if (!user) {
-    return NextResponse.redirect(new URL(loginPath, request.url))
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   // Single-domain model: this is just a gate that the user HAS the right kind
@@ -62,7 +62,7 @@ export async function updateSession(request: NextRequest, subdomain?: string) {
 
   if (needsSuperadmin) {
     if (!isSuperadmin) {
-      return NextResponse.redirect(new URL('/superadmin/login?error=unauthorized', request.url))
+      return NextResponse.redirect(new URL('/login?error=unauthorized', request.url))
     }
     return supabaseResponse
   }
@@ -73,10 +73,10 @@ export async function updateSession(request: NextRequest, subdomain?: string) {
   const hasManager = roleRows.some(r => r.role === 'manager' || r.role === 'admin')
 
   if (needsAdmin && !hasAdmin) {
-    return NextResponse.redirect(new URL('/admin/login?error=unauthorized', request.url))
+    return NextResponse.redirect(new URL('/login?error=unauthorized', request.url))
   }
   if (needsManager && !hasManager) {
-    return NextResponse.redirect(new URL('/manager/login?error=unauthorized', request.url))
+    return NextResponse.redirect(new URL('/login?error=unauthorized', request.url))
   }
 
   return supabaseResponse

@@ -45,7 +45,7 @@ export default function TablesPage() {
   const [detailTable, setDetailTable] = useState<RestaurantTable | null>(null)
   const [detailOrders, setDetailOrders] = useState<TableOrder[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
-  const DEFAULT_CARD_IMAGE = 'https://images.unsplash.com/photo-1544025162-d76538d31203?w=400&q=80&auto=format&fit=crop'
+  const DEFAULT_CARD_IMAGE = '' // no external default — show a clean gradient until the owner adds a photo
   const [cardImage, setCardImage] = useState(DEFAULT_CARD_IMAGE)
   const [cardTemplate, setCardTemplate] = useState<QRTemplate>('classic')
   const [cardBgColor, setCardBgColor] = useState('')
@@ -65,7 +65,13 @@ export default function TablesPage() {
     minimal:   { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
     template3: { heading: 'SCAN HERE', subtext: 'To see our menu',  label: ''               },
     template4: { heading: 'MENU',      subtext: 'Scan to view our', label: ''               },
+    template5: { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
+    template6: { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
+    template7: { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
+    template8: { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
   }
+
+  const IFRAME_TEMPLATES = ['template5', 'template6', 'template7', 'template8']
 
   async function handleCardImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -358,15 +364,15 @@ export default function TablesPage() {
           </div>
         }
       >
-        <div className="flex gap-5" style={{ height: 580 }}>
+        <div className="flex flex-col md:flex-row gap-5 md:h-145">
 
-          {/* Left: Template selector */}
-          <div className="shrink-0">
+          {/* Template selector */}
+          <div className="md:shrink-0">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Template</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-4 md:grid-cols-2 gap-2">
               {(qrLib?.TEMPLATES ?? []).map(t => (
                 <button key={t.id} onClick={() => setCardTemplate(t.id)}
-                  className={`w-24 rounded-xl border-2 py-4 flex flex-col items-center gap-2 transition-all cursor-pointer ${cardTemplate === t.id ? 'border-orange-400 shadow-sm' : 'border-gray-100 hover:border-gray-300'}`}
+                  className={`w-full md:w-24 rounded-xl border-2 py-3 md:py-4 flex flex-col items-center gap-1.5 md:gap-2 transition-all cursor-pointer ${cardTemplate === t.id ? 'border-orange-400 shadow-sm' : 'border-gray-100 hover:border-gray-300'}`}
                   style={{ background: t.cardBg }}>
                   <div className="w-5 h-5 rounded-full border-2" style={{ borderColor: t.accent, background: t.accent + '33' }} />
                   <span className="text-[10px] font-semibold text-center leading-tight" style={{ color: t.accent }}>{t.label}</span>
@@ -375,7 +381,7 @@ export default function TablesPage() {
             </div>
           </div>
 
-          {/* Right: QR card + actions */}
+          {/* QR card + actions */}
           <div className="flex-1 flex flex-col items-center gap-3 overflow-y-auto">
             {(() => {
               const t = qrLib?.TEMPLATES.find(x => x.id === cardTemplate) ?? qrLib?.TEMPLATES[0]
@@ -419,6 +425,19 @@ export default function TablesPage() {
                 </div>
               )
 
+              // New gradient templates: render the real card HTML in an iframe
+              // so the preview exactly matches what prints.
+              if (IFRAME_TEMPLATES.includes(cardTemplate) && qrLib && qrDataUrl) return (
+                <div className="w-full flex justify-center">
+                  <iframe
+                    title="QR card preview"
+                    srcDoc={qrLib.getCardHTML(cardTemplate, qrModal?.table_number || '', cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || undefined, cardSubtext || undefined, cardLabel || undefined)}
+                    className="rounded-2xl shadow-xl border border-gray-100 pointer-events-none bg-white max-w-full"
+                    style={{ width: 330, height: 460 }}
+                  />
+                </div>
+              )
+
               if (cardTemplate === 'template4') return (
                 <div className="w-full max-w-[500px] mx-auto rounded-xl overflow-hidden shadow-xl flex flex-col items-center px-7 py-6 text-center" style={{ ...activeBgStyle, minHeight: 420 }}>
                   <div className="text-3xl leading-none mb-1" style={{ color: activeText }}>❧</div>
@@ -438,8 +457,12 @@ export default function TablesPage() {
                 <div className="w-full max-w-[500px] mx-auto rounded-2xl overflow-hidden shadow-xl border border-gray-100" style={{ minHeight: 420 }}>
                   {showImg && (
                     <div className="h-44 overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={cardImage} alt="food" className="w-full h-full object-cover" />
+                      {cardImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cardImage} alt="food" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${activeText}33, ${activeText}66)` }} />
+                      )}
                     </div>
                   )}
                   <div className={`px-6 pb-5 text-center flex flex-col items-center justify-center ${showImg ? 'pt-6' : 'pt-0 h-[420px]'}`} style={activeBgStyle}>
@@ -461,7 +484,7 @@ export default function TablesPage() {
               )
             })()}
 
-            {cardTemplate !== 'minimal' && cardTemplate !== 'template4' && (
+            {(cardTemplate === 'classic' || cardTemplate === 'template3') && (
               <label className={`w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-xl py-2 text-sm transition-colors ${uploadingCardImg ? 'text-gray-300 cursor-wait' : 'text-gray-500 hover:border-orange-400 hover:text-orange-500 cursor-pointer'}`}>
                 <Plus className="w-4 h-4" /> {uploadingCardImg ? 'Uploading...' : 'Change Food Image'}
                 <input type="file" accept="image/*" className="hidden" disabled={uploadingCardImg} onChange={handleCardImageUpload} />

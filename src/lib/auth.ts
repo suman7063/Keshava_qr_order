@@ -129,18 +129,17 @@ export async function requireSessionAccess(
   sessionId: string,
   code?: string | null
 ): Promise<SessionContext | NextResponse> {
-  const restaurantId = await getRestaurantId(request)
-  if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
-
   const provided = (code ?? request.headers.get('x-session-code') ?? '').trim()
   if (!sessionId || !/^\d{6}$/.test(provided)) return unauthorized('Session code required')
 
+  // The session (an unguessable UUID) + its 6-digit code IS the auth. Resolve
+  // the tenant FROM the session itself — never from the request's subdomain /
+  // restaurant_id (which is 'default' on the single shared domain).
   const db = createAdminClient()
   const { data: session } = await db
     .from('table_sessions')
     .select('id, table_id, restaurant_id, customer_name, bill_requested, status, otp, otp_attempts')
     .eq('id', sessionId)
-    .eq('restaurant_id', restaurantId)
     .single()
 
   if (!session || session.status !== 'active') {

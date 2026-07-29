@@ -34,7 +34,9 @@ export function getTemplate1HTML(tableNumber: string, cardImage: string, qrDataU
     .scan{color:${accent};font-size:11px;letter-spacing:2px;font-weight:600;margin-top:8px;opacity:0.8;}
   </style></head>
   <body><div class="card">
-    <div class="food-img"><img src="${cardImage}"/></div>
+    ${cardImage
+      ? `<div class="food-img"><img src="${cardImage}"/></div>`
+      : `<div class="food-img" style="background:linear-gradient(135deg, ${accent}33, ${accent}66);"></div>`}
     <div class="body">
       <img src="${qrDataUrl}"/>
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px;">

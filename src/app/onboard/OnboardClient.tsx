@@ -117,7 +117,7 @@ export default function OnboardClient() {
         email: form.owner_email,
         password: form.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/admin/login`,
+          emailRedirectTo: `${window.location.origin}/login`,
           data: { name: form.name },
         },
       })
@@ -173,7 +173,7 @@ export default function OnboardClient() {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: success!.email,
-      options: { emailRedirectTo: `${window.location.origin}/admin/login` },
+      options: { emailRedirectTo: `${window.location.origin}/login` },
     })
     setResendMsg(error ? 'Could not resend. Try again.' : 'Verification email sent!')
     setResending(false)
@@ -215,7 +215,7 @@ export default function OnboardClient() {
           </button>
 
           <Link
-            href="/admin/login"
+            href="/login"
             className="flex items-center justify-center gap-2 bg-blue-800 text-white font-semibold py-3 rounded-xl hover:bg-blue-900 transition-colors"
           >
             Go to Login <ArrowRight className="w-4 h-4" />
@@ -242,7 +242,7 @@ export default function OnboardClient() {
           </Link>
           <span className="text-sm text-gray-400">
             Already have an account?{' '}
-            <Link href="/admin/login" className="text-blue-800 font-semibold hover:underline">Login</Link>
+            <Link href="/login" className="text-blue-800 font-semibold hover:underline">Login</Link>
           </span>
         </div>
       </div>

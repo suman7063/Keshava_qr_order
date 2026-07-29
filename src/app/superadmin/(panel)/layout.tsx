@@ -79,7 +79,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/superadmin/login')
+    router.push('/login')
   }
 
   if (checking) {

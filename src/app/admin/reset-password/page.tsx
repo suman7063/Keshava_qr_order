@@ -38,7 +38,7 @@ export default function ResetPasswordPage() {
       setLoading(false)
       return
     }
-    router.push('/admin/login')
+    router.push('/login')
   }
 
   return (

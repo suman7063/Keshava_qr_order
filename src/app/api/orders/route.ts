@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getRestaurantId } from '@/lib/restaurant'
 import { requireStaff, requireSessionAccess } from '@/lib/auth'
 
 const ORDER_SELECT = `*, table:restaurant_tables(*), session:table_sessions(id, table_id, customer_name, bill_requested, status, started_at), items:order_items(*, menu_item:menu_items(*))`
@@ -66,9 +65,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const restaurantId = await getRestaurantId(request)
-  if (!restaurantId) return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
-
   let body: {
     session_id?: string
     session_code?: string
@@ -94,6 +90,8 @@ export async function POST(request: Request) {
   const access = await requireSessionAccess(request, session_id, session_code)
   if (access instanceof NextResponse) return access
   const { session, db } = access
+  // Tenant comes from the verified session, not the request.
+  const restaurantId = session.restaurant_id
 
   // Prices come from the menu, never from the client.
   const itemIds = [...new Set(items.map(i => i.menu_item_id).filter(Boolean))] as string[]

@@ -218,7 +218,7 @@ export default function ManagerPage() {
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/manager/login')
+    router.push('/login')
     router.refresh()
   }
 
