@@ -154,7 +154,8 @@ export default function MenuPage() {
 
   function exportPDF() {
     if (!pdfLib) return
-    const html = pdfLib.getPdfHTML(pdfTemplateId, categories, items, restaurantName, {
+    const availableItems = items.filter(i => i.is_available)
+    const html = pdfLib.getPdfHTML(pdfTemplateId, categories, availableItems, restaurantName, {
       bgColor: pdfBgColor || undefined,
       textColor: pdfTextColor || undefined,
       subTextColor: pdfSubTextColor || undefined,
@@ -614,7 +615,7 @@ export default function MenuPage() {
               const previewHtml = pdfLib!.getPdfHTML(
                 t.id,
                 categories.slice(0, 3),
-                items.slice(0, 6),
+                items.filter(i => i.is_available).slice(0, 6),
                 restaurantName,
                 isSelected ? {
                   bgColor: pdfBgColor || undefined,
