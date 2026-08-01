@@ -35,7 +35,6 @@ export default function PostersPage() {
 
   const [template, setTemplate] = useState<PosterTemplate>('scan')
   const [size, setSize] = useState<PosterSizeKey>('a3')
-  const [badge, setBadge] = useState('')
   const [phone, setPhone] = useState('')
   const [cta, setCta] = useState('')
   const [features, setFeatures] = useState('')
@@ -105,7 +104,6 @@ export default function PostersPage() {
     accent: color || restaurant?.primary_color || defaultAccent(template),
     qrDataUrl,
     menuUrl: menuUrlText,
-    badge: badge.trim() || undefined,
     phone: phone.trim() || undefined,
     cta: cta.trim() || undefined,
     features: features.trim() ? features.split(',').map(s => s.trim()).filter(Boolean).slice(0, 4) : undefined,
@@ -121,7 +119,6 @@ export default function PostersPage() {
     coverImage: bgImage || restaurant?.cover_image_url,
     qrDataUrl,
     menuUrl: menuUrlText,
-    badge: badge.trim() || undefined,
     cta: cta.trim() || undefined,
     phone: phone.trim() || undefined,
     items: selectedItems,
@@ -161,10 +158,9 @@ export default function PostersPage() {
     : null
 
   // Which fields the current template actually uses (show only those).
-  const usesBadge = !!baseDoc?.elements.some(e => e.type === 'text' && e.bind === 'badge')
   const bgIsImage = baseDoc?.background.type === 'image' // full-bg photo (not a clickable element)
   const usesFeatures = !!baseDoc?.elements.some(e => e.type === 'features')
-  const hasFields = usesBadge || bgIsImage || usesFeatures || cap > 0
+  const hasFields = bgIsImage || usesFeatures || cap > 0
 
   // Canvas selection — the clicked element + its live overrides.
   const selectedEl = activeDoc?.elements.find(e => e.id === selectedId) || null
@@ -309,7 +305,7 @@ export default function PostersPage() {
                     <input type="text" value={selTextValue}
                       onChange={e => selectedId && setElText(prev => ({ ...prev, [selectedId]: e.target.value }))}
                       placeholder="Edit text…" autoFocus
-                      className="flex-1 min-w-0 rounded-md border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
+                      className="flex-1 min-w-0 rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-300" />
                     <button onClick={() => setSelectedId(null)} title="Done"
                       className="text-gray-400 hover:text-gray-700 cursor-pointer shrink-0"><X className="w-4 h-4" /></button>
                   </div>
@@ -412,8 +408,6 @@ export default function PostersPage() {
 
           {hasFields && (
             <Section title="Details">
-              {usesBadge && <Field label="Badge" value={badge} onChange={setBadge} placeholder="e.g. 50% OFF" />}
-
               {bgIsImage && (
                 <div className="mb-3">
                   <label className="block text-xs font-medium text-gray-500 mb-1">Background image</label>
@@ -486,7 +480,7 @@ function Field({ label, value, onChange, placeholder }:
     <div className="mb-3">
       <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
       <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-300" />
     </div>
   )
 }

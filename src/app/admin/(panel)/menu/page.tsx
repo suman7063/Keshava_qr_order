@@ -326,8 +326,8 @@ export default function MenuPage() {
                     {showMenuImages && (
                       item.image_url
                         // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={item.image_url} alt={item.name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-gray-100" />
-                        : <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-base">🍽</div>
+                        ? <img src={item.image_url} alt={item.name} className="w-10 h-10 rounded-md object-cover shrink-0 border border-gray-200" />
+                        : <div className="w-10 h-10 rounded-md bg-gray-100 flex items-center justify-center shrink-0 text-base">🍽</div>
                     )}
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -374,8 +374,8 @@ export default function MenuPage() {
               {showMenuImages && (
                 item.image_url
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={item.image_url} alt={item.name} className="w-14 h-14 rounded-lg object-cover shrink-0 border border-gray-100" />
-                  : <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-xl">🍽</div>
+                  ? <img src={item.image_url} alt={item.name} className="w-14 h-14 rounded-md object-cover shrink-0 border border-gray-200" />
+                  : <div className="w-14 h-14 rounded-md bg-gray-100 flex items-center justify-center shrink-0 text-xl">🍽</div>
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
@@ -425,9 +425,9 @@ export default function MenuPage() {
               <div className="flex items-center gap-3">
                 {form.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={form.image_url} alt="preview" className="w-16 h-16 rounded-xl object-cover border border-gray-200 shrink-0" />
+                  <img src={form.image_url} alt="preview" className="w-16 h-16 rounded-md object-cover border border-gray-200 shrink-0" />
                 ) : (
-                  <div className="w-16 h-16 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                  <div className="w-16 h-16 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
                     <span className="text-2xl">🍽</span>
                   </div>
                 )}
