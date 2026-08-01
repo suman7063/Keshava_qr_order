@@ -8,7 +8,8 @@ import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
 import { Plus, Pencil, Trash2, Download, Tags } from 'lucide-react'
 import { VegMark } from '@/components/ui/VegMark'
-import { uploadImage, deleteImage } from '@/lib/uploadImage'
+import { deleteImage } from '@/lib/uploadImage'
+import { useCropUpload } from '@/components/ui/useCropUpload'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { CATEGORY_SUGGESTIONS } from '@/lib/categories'
 
@@ -39,18 +40,12 @@ export default function MenuPage() {
     image_url: '',
   })
 
-  const [uploadingImg, setUploadingImg] = useState(false)
+  const { openCrop, cropModal, uploading: uploadingImg } = useCropUpload('menu-items')
 
-  async function handleItemImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleItemImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    setUploadingImg(true)
-    try {
-      const url = await uploadImage(file, 'menu-items')
-      setForm(f => ({ ...f, image_url: url }))
-    } finally {
-      setUploadingImg(false)
-    }
+    if (file) openCrop(file, 1, url => setForm(f => ({ ...f, image_url: url })))
+    e.target.value = ''
   }
 
   async function removeItemImage() {
@@ -709,6 +704,7 @@ export default function MenuPage() {
           </div>
         </div>
       </Modal>
+      {cropModal}
     </div>
   )
 }

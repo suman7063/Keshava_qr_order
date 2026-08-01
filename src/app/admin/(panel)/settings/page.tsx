@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Toast, useToast } from '@/components/ui/Toast'
-import { uploadImage } from '@/lib/uploadImage'
+import { useCropUpload } from '@/components/ui/useCropUpload'
 import { PLANS, type PlanId } from '@/lib/plans'
 import { Store, Palette, Camera, BadgeCheck, Zap, ImageIcon, MapPin, Clock, Globe } from 'lucide-react'
 
@@ -46,8 +46,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<RestaurantProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [uploadingLogo, setUploadingLogo] = useState(false)
-  const [uploadingCover, setUploadingCover] = useState(false)
+  const { openCrop, cropModal, uploading } = useCropUpload('branding')
   const [error, setError] = useState('')
   const [upgrading, setUpgrading] = useState(false)
   const { toast, showToast, dismissToast } = useToast()
@@ -80,32 +79,16 @@ export default function SettingsPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    setUploadingLogo(true)
-    try {
-      const url = await uploadImage(file, 'logos')
-      setForm(f => ({ ...f, logo_url: url }))
-    } catch {
-      showToast('Logo upload failed.')
-    } finally {
-      setUploadingLogo(false)
-    }
+    if (file) openCrop(file, 1, url => setForm(f => ({ ...f, logo_url: url })))
+    e.target.value = ''
   }
 
-  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    setUploadingCover(true)
-    try {
-      const url = await uploadImage(file, 'covers')
-      setForm(f => ({ ...f, cover_image_url: url }))
-    } catch {
-      showToast('Cover photo upload failed.')
-    } finally {
-      setUploadingCover(false)
-    }
+    if (file) openCrop(file, 16 / 9, url => setForm(f => ({ ...f, cover_image_url: url })))
+    e.target.value = ''
   }
 
   async function save() {
@@ -233,8 +216,8 @@ export default function SettingsPage() {
           )}
           <div>
             <label className="text-sm font-medium text-orange-600 hover:text-orange-700 cursor-pointer">
-              {uploadingLogo ? 'Uploading…' : form.logo_url ? 'Change logo' : 'Upload logo'}
-              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingLogo} onChange={handleLogoUpload} />
+              {uploading ? 'Uploading…' : form.logo_url ? 'Change logo' : 'Upload logo'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploading} onChange={handleLogoUpload} />
             </label>
             {form.logo_url && (
               <button onClick={() => setForm(f => ({ ...f, logo_url: '' }))} className="block text-xs text-gray-400 hover:text-red-400 mt-1">
@@ -303,8 +286,8 @@ export default function SettingsPage() {
             )}
             <div className="flex items-center gap-4 mt-2">
               <label className="text-sm font-medium text-orange-600 hover:text-orange-700 cursor-pointer">
-                {uploadingCover ? 'Uploading…' : form.cover_image_url ? 'Change cover photo' : 'Upload cover photo'}
-                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingCover} onChange={handleCoverUpload} />
+                {uploading ? 'Uploading…' : form.cover_image_url ? 'Change cover photo' : 'Upload cover photo'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploading} onChange={handleCoverUpload} />
               </label>
               {form.cover_image_url && (
                 <button onClick={() => setForm(f => ({ ...f, cover_image_url: '' }))} className="text-xs text-gray-400 hover:text-red-400">
@@ -351,6 +334,7 @@ export default function SettingsPage() {
 
         <Button loading={saving} onClick={save}>Save Settings</Button>
       </div>
+      {cropModal}
     </div>
   )
 }

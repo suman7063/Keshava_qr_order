@@ -7,6 +7,7 @@ import { formatDate } from '@/lib/utils'
 import { Plus, Trash2, Users, Eye, EyeOff, Pencil, Camera } from 'lucide-react'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { uploadImage } from '@/lib/uploadImage'
+import { CropModal } from '@/components/ui/CropModal'
 
 interface Manager {
   user_id: string
@@ -101,14 +102,14 @@ export default function ManagersPage() {
 
   useEffect(() => { fetchManagers() }, [])
 
+  const [avatarCrop, setAvatarCrop] = useState<{ url: string; apply: (f: File) => void } | null>(null)
+  function closeAvatarCrop() { if (avatarCrop) URL.revokeObjectURL(avatarCrop.url); setAvatarCrop(null) }
   function onAddAvatar(file: File) {
-    setAddAvatarFile(file)
-    setAddAvatarPreview(URL.createObjectURL(file))
+    setAvatarCrop({ url: URL.createObjectURL(file), apply: f => { setAddAvatarFile(f); setAddAvatarPreview(URL.createObjectURL(f)) } })
   }
 
   function onEditAvatar(file: File) {
-    setEditAvatarFile(file)
-    setEditAvatarPreview(URL.createObjectURL(file))
+    setAvatarCrop({ url: URL.createObjectURL(file), apply: f => { setEditAvatarFile(f); setEditAvatarPreview(URL.createObjectURL(f)) } })
   }
 
   async function addManager() {
@@ -325,6 +326,12 @@ export default function ManagersPage() {
           </div>
         </div>
       </Modal>
+
+      {avatarCrop && (
+        <CropModal src={avatarCrop.url} aspect={1}
+          onCancel={closeAvatarCrop}
+          onDone={f => { avatarCrop.apply(f); closeAvatarCrop() }} />
+      )}
     </div>
   )
 }

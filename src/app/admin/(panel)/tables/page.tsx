@@ -9,7 +9,7 @@ import { formatDate } from '@/lib/utils'
 import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList, Copy, Check, Palette, Type, ImageIcon } from 'lucide-react'
 import QRCode from 'qrcode'
 import { formatCurrency } from '@/lib/utils'
-import { uploadImage } from '@/lib/uploadImage'
+import { useCropUpload } from '@/components/ui/useCropUpload'
 
 interface OrderItem { id: string; quantity: number; total_price: number; menu_item?: { name: string } }
 interface TableOrder { id: string; customer_name?: string; status: string; total_amount: number; created_at: string; items?: OrderItem[] }
@@ -56,8 +56,7 @@ export default function TablesPage() {
   const [cardLabel, setCardLabel] = useState('')
   const [editingField, setEditingField] = useState<'heading' | 'subtext' | 'label' | null>(null)
   const [savingCard, setSavingCard] = useState(false)
-  const [uploadingCardImg, setUploadingCardImg] = useState(false)
-  const [uploadingBgImg, setUploadingBgImg] = useState(false)
+  const { openCrop, cropModal, uploading } = useCropUpload('qr-card')
   const [qrLib, setQrLib] = useState<typeof import('@/lib/qr-templates') | null>(null)
 
   const DEFAULT_TEXTS: Record<QRTemplate, { heading: string; subtext: string; label: string }> = {
@@ -73,29 +72,16 @@ export default function TablesPage() {
 
   const IFRAME_TEMPLATES = ['template5', 'template6', 'template7', 'template8']
 
-  async function handleCardImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleCardImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    setUploadingCardImg(true)
-    try {
-      const url = await uploadImage(file, 'qr-card')
-      setCardImage(url)
-    } finally {
-      setUploadingCardImg(false)
-    }
+    if (file) openCrop(file, 4 / 3, url => setCardImage(url))
+    e.target.value = ''
   }
 
-  async function handleBgImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleBgImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    setUploadingBgImg(true)
-    try {
-      const url = await uploadImage(file, 'qr-bg')
-      setCardBgImage(url)
-      setCardBgColor('')
-    } finally {
-      setUploadingBgImg(false)
-    }
+    if (file) openCrop(file, 330 / 460, url => { setCardBgImage(url); setCardBgColor('') })
+    e.target.value = ''
   }
 
   async function saveCardSettings() {
@@ -347,9 +333,9 @@ export default function TablesPage() {
                 value={cardBgColor || (qrLib?.TEMPLATES.find(x => x.id === cardTemplate)?.cardBg ?? '#ffffff')}
                 onChange={e => { setCardBgColor(e.target.value); setCardBgImage('') }}
                 className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
-              <label className={`cursor-pointer p-1 rounded border transition-colors ${uploadingBgImg ? 'opacity-50 cursor-wait' : ''} ${cardBgImage ? 'border-orange-400 text-orange-500' : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-400'}`} title="Use image as background">
+              <label className={`cursor-pointer p-1 rounded border transition-colors ${uploading ? 'opacity-50 cursor-wait' : ''} ${cardBgImage ? 'border-orange-400 text-orange-500' : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-400'}`} title="Use image as background">
                 <ImageIcon className="w-4 h-4" />
-                <input type="file" accept="image/*" className="hidden" disabled={uploadingBgImg} onChange={handleBgImageUpload} />
+                <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={handleBgImageUpload} />
               </label>
               <button onClick={() => { setCardBgColor(''); setCardBgImage('') }} className="text-xs text-gray-400 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300">Reset</button>
             </div>
@@ -485,9 +471,9 @@ export default function TablesPage() {
             })()}
 
             {(cardTemplate === 'classic' || cardTemplate === 'template3') && (
-              <label className={`w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-xl py-2 text-sm transition-colors ${uploadingCardImg ? 'text-gray-300 cursor-wait' : 'text-gray-500 hover:border-orange-400 hover:text-orange-500 cursor-pointer'}`}>
-                <Plus className="w-4 h-4" /> {uploadingCardImg ? 'Uploading...' : 'Change Food Image'}
-                <input type="file" accept="image/*" className="hidden" disabled={uploadingCardImg} onChange={handleCardImageUpload} />
+              <label className={`w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-xl py-2 text-sm transition-colors ${uploading ? 'text-gray-300 cursor-wait' : 'text-gray-500 hover:border-orange-400 hover:text-orange-500 cursor-pointer'}`}>
+                <Plus className="w-4 h-4" /> {uploading ? 'Uploading...' : 'Change Food Image'}
+                <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={handleCardImageUpload} />
               </label>
             )}
 
@@ -551,6 +537,7 @@ export default function TablesPage() {
           </div>
         )}
       </Modal>
+      {cropModal}
     </div>
   )
 }
