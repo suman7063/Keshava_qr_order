@@ -57,6 +57,17 @@ export async function POST(request: Request) {
     .single()
   if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 400 })
 
+  // The station (if set) must belong to this restaurant too.
+  if (insert.station_id) {
+    const { data: station } = await ctx.db
+      .from('kitchen_stations')
+      .select('id')
+      .eq('id', insert.station_id as string)
+      .eq('restaurant_id', ctx.restaurantId)
+      .single()
+    if (!station) return NextResponse.json({ error: 'Kitchen not found' }, { status: 400 })
+  }
+
   // Plan limit enforcement
   const { data: restaurant } = await ctx.db
     .from('restaurants')

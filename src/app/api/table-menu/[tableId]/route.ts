@@ -10,7 +10,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ tableId
 
   const { data: table, error } = await db
     .from('restaurant_tables')
-    .select('id, table_number, restaurant_id, restaurant:restaurants(id, name, subdomain, status, logo_url, primary_color)')
+    .select('id, table_number, status, restaurant_id, restaurant:restaurants(id, name, subdomain, status, logo_url, primary_color)')
     .eq('id', tableId)
     .single()
 
@@ -26,16 +26,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ tableId
   const [cats, items, settings] = await Promise.all([
     db.from('menu_categories').select('*').eq('restaurant_id', rid).eq('is_active', true).order('display_order'),
     db.from('menu_items').select('*, category:menu_categories(*)').eq('restaurant_id', rid).order('display_order'),
-    db.from('restaurant_settings').select('show_menu_images').eq('restaurant_id', rid).single(),
+    db.from('restaurant_settings').select('show_menu_images, otp_mode').eq('restaurant_id', rid).single(),
   ])
 
   return NextResponse.json(
     {
-      table: { id: table.id, table_number: table.table_number, restaurant_id: rid },
+      table: { id: table.id, table_number: table.table_number, status: table.status, restaurant_id: rid },
       restaurant: { name: restaurant.name, subdomain: restaurant.subdomain, logo_url: restaurant.logo_url, primary_color: restaurant.primary_color },
       categories: cats.data ?? [],
       items: items.data ?? [],
-      settings: settings.data ?? { show_menu_images: true },
+      settings: settings.data ?? { show_menu_images: true, otp_mode: 'customer' },
     },
     // Cacheable at the CDN; the tableId in the URL keys each table's copy,
     // and menu edits propagate within the 60s window.

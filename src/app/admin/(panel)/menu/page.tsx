@@ -1,17 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { MenuItem, MenuCategory } from '@/types'
+import { MenuItem, MenuCategory, KitchenStation } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Download, Tags } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download, Tags, ChefHat, Info } from 'lucide-react'
 import { VegMark } from '@/components/ui/VegMark'
 import { deleteImage } from '@/lib/uploadImage'
 import { useCropUpload } from '@/components/ui/useCropUpload'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { CATEGORY_SUGGESTIONS } from '@/lib/categories'
+
+const STATION_SUGGESTIONS = ['South Kitchen', 'North Kitchen', 'Chinese', 'Tandoor', 'Beverages', 'Desserts']
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([])
@@ -34,8 +36,13 @@ export default function MenuPage() {
   const [catName, setCatName] = useState('')
   const [catError, setCatError] = useState('')
   const [savingCat, setSavingCat] = useState(false)
+  const [stations, setStations] = useState<KitchenStation[]>([])
+  const [showStationModal, setShowStationModal] = useState(false)
+  const [stationName, setStationName] = useState('')
+  const [stationError, setStationError] = useState('')
+  const [savingStation, setSavingStation] = useState(false)
   const [form, setForm] = useState({
-    name: '', description: '', price: '', category_id: '',
+    name: '', description: '', price: '', category_id: '', station_id: '',
     is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '',
     image_url: '',
   })
@@ -55,18 +62,21 @@ export default function MenuPage() {
 
   async function fetchData() {
     try {
-      const [catRes, itemRes, settingsRes, restRes] = await Promise.all([
+      const [catRes, itemRes, settingsRes, restRes, stationRes] = await Promise.all([
         fetch('/api/menu-categories'),
         fetch('/api/menu-items'),
         fetch('/api/settings'),
         fetch('/api/restaurants/current'),
+        fetch('/api/stations'),
       ])
       const cats = catRes.ok ? await catRes.json() : []
       const menuItems = itemRes.ok ? await itemRes.json() : []
       const settings = settingsRes.ok ? await settingsRes.json() : {}
       const restaurant = restRes.ok ? await restRes.json() : null
+      const stationList = stationRes.ok ? await stationRes.json() : []
       setCategories(Array.isArray(cats) ? cats : [])
       setItems(Array.isArray(menuItems) ? menuItems : [])
+      setStations(Array.isArray(stationList) ? stationList : [])
       setShowMenuImages(settings.show_menu_images ?? true)
       if (restaurant?.name) setRestaurantName(restaurant.name)
       if (cats.length > 0 && !activeCategory) setActiveCategory(cats[0].id)
@@ -109,6 +119,62 @@ export default function MenuPage() {
       fetchData()
     }
     setSavingCat(false)
+  }
+
+  async function addStation() {
+    if (!stationName.trim()) return
+    setSavingStation(true)
+    setStationError('')
+    const res = await fetch('/api/stations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: stationName.trim(), display_order: stations.length }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      setStationError(data.error || 'Could not create kitchen.')
+    } else {
+      showToast(`Kitchen "${stationName.trim()}" created!`)
+      setStationName('')
+      fetchData()
+    }
+    setSavingStation(false)
+  }
+
+  async function deleteStation(id: string, name: string) {
+    if (!confirm(`Delete kitchen "${name}"? Its items will fall back to Main Kitchen.`)) return
+    const res = await fetch(`/api/stations/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      showToast(data.error || 'Could not delete kitchen.')
+    } else {
+      showToast(`Kitchen "${name}" deleted.`)
+      fetchData()
+    }
+  }
+
+  async function setCategoryStation(catId: string, stationId: string) {
+    const res = await fetch(`/api/menu-categories/${catId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ default_station_id: stationId || null }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      showToast(data.error || 'Could not set the kitchen.')
+    }
+    fetchData()
+  }
+
+  function stationNameOf(id?: string | null): string | undefined {
+    if (!id) return undefined
+    return stations.find(s => s.id === id)?.name
+  }
+
+  /** Item override wins, else category default, else undefined (= Main Kitchen). */
+  function resolveItemStation(item: MenuItem): string | undefined {
+    const cat = categories.find(c => c.id === item.category_id)
+    return stationNameOf(item.station_id) ?? stationNameOf(cat?.default_station_id)
   }
 
   async function deleteCategory(id: string, name: string) {
@@ -181,7 +247,7 @@ export default function MenuPage() {
 
   function openAdd() {
     setEditItem(null)
-    setForm({ name: '', description: '', price: '', category_id: activeCategory || '', is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '', image_url: '' })
+    setForm({ name: '', description: '', price: '', category_id: activeCategory || '', station_id: '', is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '', image_url: '' })
     setShowModal(true)
   }
 
@@ -189,7 +255,8 @@ export default function MenuPage() {
     setEditItem(item)
     setForm({
       name: item.name, description: item.description || '', price: String(item.price),
-      category_id: item.category_id, is_vegetarian: item.is_vegetarian, is_vegan: item.is_vegan,
+      category_id: item.category_id, station_id: item.station_id || '',
+      is_vegetarian: item.is_vegetarian, is_vegan: item.is_vegan,
       is_available: item.is_available, prep_time_minutes: String(item.prep_time_minutes || ''),
       image_url: item.image_url || '',
     })
@@ -206,6 +273,7 @@ export default function MenuPage() {
       ...form,
       price: parseFloat(form.price),
       prep_time_minutes: form.prep_time_minutes ? parseInt(form.prep_time_minutes) : null,
+      station_id: form.station_id || null,
     }
     const res = editItem
       ? await fetch(`/api/menu-items/${editItem.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -255,6 +323,11 @@ export default function MenuPage() {
           <button onClick={() => { setShowCatModal(true); setCatError('') }}
             className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
             <Tags className="w-4 h-4" /> Categories
+          </button>
+          {/* Manage kitchens (internally: kitchen_stations) */}
+          <button onClick={() => { setShowStationModal(true); setStationError('') }}
+            className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
+            <ChefHat className="w-4 h-4" /> Kitchens
           </button>
           {/* Export buttons */}
           <div className="flex items-center gap-1 border border-gray-200 rounded-xl overflow-hidden">
@@ -340,6 +413,11 @@ export default function MenuPage() {
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span className="text-sm text-gray-600">{item.category?.name}</span>
+                  {stations.length > 0 && (
+                    <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                      <ChefHat className="w-3 h-3" /> {resolveItemStation(item) || 'Main Kitchen'}
+                    </p>
+                  )}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span className="font-semibold text-orange-600">{formatCurrency(item.price)}</span>
@@ -384,7 +462,10 @@ export default function MenuPage() {
                       <p className="font-semibold text-gray-900 truncate">{item.name}</p>
                       <VegMark veg={item.is_vegetarian} />
                     </div>
-                    <p className="text-xs text-gray-400">{item.category?.name}</p>
+                    <p className="text-xs text-gray-400">
+                      {item.category?.name}
+                      {stations.length > 0 && <span className="text-gray-300"> · {resolveItemStation(item) || 'Main Kitchen'}</span>}
+                    </p>
                   </div>
                   <span className="font-semibold text-orange-600 whitespace-nowrap">{formatCurrency(item.price)}</span>
                 </div>
@@ -508,6 +589,25 @@ export default function MenuPage() {
               </select>
             )}
           </div>
+          {/* Kitchen override — only when this restaurant uses multiple kitchens */}
+          {stations.length > 0 && (
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Kitchen</label>
+              <select
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 text-gray-900"
+                value={form.station_id}
+                onChange={e => setForm(f => ({ ...f, station_id: e.target.value }))}
+              >
+                <option value="">
+                  Category default ({stationNameOf(categories.find(c => c.id === form.category_id)?.default_station_id) || 'Main Kitchen'})
+                </option>
+                {stations.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Where this item is prepared — its KOT slip prints in this kitchen.</p>
+            </div>
+          )}
           <div className="col-span-2 space-y-3">
             {/* Food type — one clean choice: Veg / Vegan / Non-veg */}
             <div>
@@ -554,14 +654,25 @@ export default function MenuPage() {
                 {categories.map(cat => {
                   const count = items.filter(i => i.category_id === cat.id).length
                   return (
-                    <div key={cat.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="text-sm font-medium text-gray-800">{cat.name}
+                    <div key={cat.id} className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-sm font-medium text-gray-800 min-w-0 truncate">{cat.name}
                         <span className="text-xs text-gray-400 ml-2">{count} item{count === 1 ? '' : 's'}</span>
                       </span>
-                      <button onClick={() => deleteCategory(cat.id, cat.name)}
-                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {stations.length > 0 && (
+                          <select value={cat.default_station_id || ''}
+                            onChange={e => setCategoryStation(cat.id, e.target.value)}
+                            title="Default kitchen for this category's items"
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 max-w-32">
+                            <option value="">Main Kitchen</option>
+                            {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        )}
+                        <button onClick={() => deleteCategory(cat.id, cat.name)}
+                          className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   )
                 })}
@@ -602,6 +713,91 @@ export default function MenuPage() {
 
           <div className="flex justify-end pt-1">
             <Button variant="outline" onClick={() => setShowCatModal(false)}>Done</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Manage Kitchens Modal */}
+      <Modal isOpen={showStationModal} onClose={() => setShowStationModal(false)} title="Kitchens"
+        headerExtra={
+          <div className="relative group">
+            <button type="button" aria-label="What are kitchens?"
+              className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-500 focus:bg-blue-50 focus:text-blue-500 focus:outline-none transition-colors">
+              <Info className="w-4.5 h-4.5" />
+            </button>
+            {/* Tooltip — shows above the icon on hover/focus (focus covers touch) */}
+            <div className="absolute bottom-full right-0 mb-2 w-72 bg-gray-900 text-white text-xs leading-relaxed rounded-xl px-4 py-3 shadow-xl opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 z-10">
+              Kitchens are where food is prepared (South Kitchen, Beverages…). Each kitchen gets its own
+              KOT slip. Items with no kitchen go to <span className="font-semibold">Main Kitchen</span>.
+              <span className="absolute top-full right-4 border-4 border-transparent border-t-gray-900" />
+            </div>
+          </div>
+        }>
+        <div className="space-y-5">
+          {/* Existing kitchens with delete */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Your kitchens</p>
+            {stations.length === 0 ? (
+              <p className="text-sm text-gray-400">No kitchens yet — everything prints as one slip (Main Kitchen). Add one below to split KOTs.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {stations.map(s => {
+                  const catCount = categories.filter(c => c.default_station_id === s.id).length
+                  const itemCount = items.filter(i => i.station_id === s.id).length
+                  return (
+                    <div key={s.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-sm font-medium text-gray-800 flex items-center gap-2">
+                        <ChefHat className="w-4 h-4 text-orange-400" /> {s.name}
+                        <span className="text-xs text-gray-400">
+                          {catCount > 0 && `${catCount} categor${catCount === 1 ? 'y' : 'ies'}`}
+                          {catCount > 0 && itemCount > 0 && ' · '}
+                          {itemCount > 0 && `${itemCount} item override${itemCount === 1 ? '' : 's'}`}
+                        </span>
+                      </span>
+                      <button onClick={() => deleteStation(s.id, s.name)}
+                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Add new — presets + custom */}
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Add a kitchen</p>
+            {(() => {
+              const existing = new Set(stations.map(s => s.name.toLowerCase()))
+              const presets = STATION_SUGGESTIONS.filter(s => !existing.has(s.toLowerCase()))
+              if (presets.length === 0) return null
+              return (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {presets.map(s => (
+                    <button key={s} type="button" onClick={() => setStationName(s)}
+                      className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${stationName === s ? 'bg-orange-500 text-white border-orange-500' : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'}`}>
+                      + {s}
+                    </button>
+                  ))}
+                </div>
+              )
+            })()}
+            <div className="flex gap-2">
+              <input
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
+                value={stationName}
+                onChange={e => setStationName(e.target.value)}
+                placeholder="Pick a chip or type a custom name"
+                maxLength={100}
+              />
+              <Button loading={savingStation} onClick={addStation} disabled={!stationName.trim()}>Add</Button>
+            </div>
+            {stationError && <div className="mt-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-2">{stationError}</div>}
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Button variant="outline" onClick={() => setShowStationModal(false)}>Done</Button>
           </div>
         </div>
       </Modal>

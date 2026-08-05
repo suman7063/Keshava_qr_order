@@ -29,6 +29,7 @@ interface Session {
   customer_name?: string
   phone?: string
   otp?: string
+  otp_verified?: boolean
   started_at: string
   ended_at?: string
   bill_requested: boolean
@@ -138,7 +139,14 @@ export default function SessionsPage() {
                     </td>
                     <td className="px-5 py-4">
                       {s.otp
-                        ? <span className="inline-flex bg-orange-50 border border-orange-200 text-orange-700 font-bold tracking-widest text-sm px-2.5 py-1 rounded-lg">{s.otp}</span>
+                        ? (
+                          <div>
+                            <span className="inline-flex bg-orange-50 border border-orange-200 text-orange-700 font-bold tracking-widest text-sm px-2.5 py-1 rounded-lg">{s.otp}</span>
+                            {s.otp_verified === false && (
+                              <p className="text-[10px] font-semibold text-orange-500 mt-1 animate-pulse">Customer waiting — share this code</p>
+                            )}
+                          </div>
+                        )
                         : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-5 py-4 text-gray-500 text-xs">{formatDate(s.started_at)}</td>

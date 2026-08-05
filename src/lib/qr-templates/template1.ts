@@ -1,4 +1,5 @@
 import type { QRTemplate } from '@/types'
+import { bgImageStyle } from './bg'
 
 export const template1Config = {
   id: 'classic' as QRTemplate,
@@ -11,10 +12,10 @@ const DEFAULT_HEADING_1 = 'MENU'
 const DEFAULT_SUBTEXT_1 = 'Scan to Order'
 const DEFAULT_LABEL_1   = 'Digital'
 
-export function getTemplate1HTML(tableNumber: string, cardImage: string, qrDataUrl: string, bgColor?: string, textColor?: string, bgImage?: string, headingProp?: string, subtextProp?: string, labelProp?: string) {
+export function getTemplate1HTML(tableNumber: string, cardImage: string, qrDataUrl: string, bgColor?: string, textColor?: string, bgImage?: string, headingProp?: string, subtextProp?: string, labelProp?: string, overlay?: number) {
   const cardBg = bgColor || template1Config.cardBg
   const accent = textColor || template1Config.accent
-  const bgStyle = bgImage ? `background-image:url(${bgImage});background-size:cover;background-position:center` : `background:${cardBg}`
+  const bgStyle = bgImage ? bgImageStyle(bgImage, overlay) : `background:${cardBg}`
   const heading = headingProp || DEFAULT_HEADING_1
   const subtext = subtextProp || DEFAULT_SUBTEXT_1
   const label   = labelProp   || DEFAULT_LABEL_1

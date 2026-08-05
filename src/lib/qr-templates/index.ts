@@ -36,16 +36,17 @@ export function getCardHTML(
   bgImage?: string,
   heading?: string,
   subtext?: string,
-  label?: string
+  label?: string,
+  overlay?: number
 ): string {
   switch (template) {
-    case 'minimal':   return getTemplate2HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label)
-    case 'template3': return getTemplate3HTML(tableNumber, cardImage, qrDataUrl, bgColor, textColor, bgImage, heading, subtext)
-    case 'template4': return getTemplate4HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext)
-    case 'template5': return getTemplate5HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label)
-    case 'template6': return getTemplate6HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label)
-    case 'template7': return getTemplate7HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label)
-    case 'template8': return getTemplate8HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label)
-    default:          return getTemplate1HTML(tableNumber, cardImage, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label)
+    case 'minimal':   return getTemplate2HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label, overlay)
+    case 'template3': return getTemplate3HTML(tableNumber, cardImage, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, overlay)
+    case 'template4': return getTemplate4HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, overlay)
+    case 'template5': return getTemplate5HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label, overlay)
+    case 'template6': return getTemplate6HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label, overlay)
+    case 'template7': return getTemplate7HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label, overlay)
+    case 'template8': return getTemplate8HTML(tableNumber, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label, overlay)
+    default:          return getTemplate1HTML(tableNumber, cardImage, qrDataUrl, bgColor, textColor, bgImage, heading, subtext, label, overlay)
   }
 }

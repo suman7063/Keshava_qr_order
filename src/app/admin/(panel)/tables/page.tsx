@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
-import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList, Copy, Check, Palette, Type, ImageIcon } from 'lucide-react'
+import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList, Copy, Check, Palette, Type, ImageIcon, Layers } from 'lucide-react'
 import QRCode from 'qrcode'
 import { formatCurrency } from '@/lib/utils'
 import { useCropUpload } from '@/components/ui/useCropUpload'
@@ -51,6 +51,7 @@ export default function TablesPage() {
   const [cardBgColor, setCardBgColor] = useState('')
   const [cardBgImage, setCardBgImage] = useState('')
   const [cardTextColor, setCardTextColor] = useState('')
+  const [cardOverlay, setCardOverlay] = useState(0)
   const [cardHeading, setCardHeading] = useState('')
   const [cardSubtext, setCardSubtext] = useState('')
   const [cardLabel, setCardLabel] = useState('')
@@ -90,7 +91,7 @@ export default function TablesPage() {
     await fetch(`/api/tables/${qrModal.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ card_image: cardImage, card_template: cardTemplate, card_bg_color: cardBgColor || null, card_bg_image: cardBgImage || null, card_text_color: cardTextColor || null, card_heading: cardHeading || null, card_subtext: cardSubtext || null, card_label: cardLabel || null }),
+      body: JSON.stringify({ card_image: cardImage, card_template: cardTemplate, card_bg_color: cardBgColor || null, card_bg_image: cardBgImage || null, card_text_color: cardTextColor || null, card_heading: cardHeading || null, card_subtext: cardSubtext || null, card_label: cardLabel || null, card_overlay: cardOverlay }),
     })
     fetchTables()
     setSavingCard(false)
@@ -180,6 +181,7 @@ export default function TablesPage() {
     setCardBgColor(table.card_bg_color || '')
     setCardBgImage(table.card_bg_image || '')
     setCardTextColor(table.card_text_color || '')
+    setCardOverlay(table.card_overlay ?? 0)
     setCardHeading(table.card_heading || '')
     setCardSubtext(table.card_subtext || '')
     setCardLabel(table.card_label || '')
@@ -192,7 +194,7 @@ export default function TablesPage() {
   function downloadQR(table: RestaurantTable) {
     if (!qrLib) return
     const def = DEFAULT_TEXTS[cardTemplate]
-    const html = qrLib.getCardHTML(cardTemplate, table.table_number, cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || def.heading, cardSubtext || def.subtext, cardLabel || def.label)
+    const html = qrLib.getCardHTML(cardTemplate, table.table_number, cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || def.heading, cardSubtext || def.subtext, cardLabel || def.label, cardOverlay)
     const win = window.open('', '_blank', 'width=400,height=640')
     if (!win) return
     win.document.write(html)
@@ -337,8 +339,17 @@ export default function TablesPage() {
                 <ImageIcon className="w-4 h-4" />
                 <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={handleBgImageUpload} />
               </label>
-              <button onClick={() => { setCardBgColor(''); setCardBgImage('') }} className="text-xs text-gray-400 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300">Reset</button>
+              <button onClick={() => { setCardBgColor(''); setCardBgImage(''); setCardOverlay(0) }} className="text-xs text-gray-400 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300">Reset</button>
             </div>
+            {cardBgImage && (
+              <div className="flex items-center gap-1.5" title="Photo layer — darker photo, clearer text">
+                <Layers className="w-5 h-5 text-gray-400" />
+                <input type="range" min={0} max={80} step={5} value={cardOverlay}
+                  onChange={e => setCardOverlay(Number(e.target.value))}
+                  className="w-20 accent-orange-500 cursor-pointer" />
+                <span className="text-[10px] text-gray-400 w-6">{cardOverlay}%</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5" title="Text Color">
               <Type className="w-5 h-5 text-gray-400" />
               <input type="color"
@@ -372,8 +383,9 @@ export default function TablesPage() {
             {(() => {
               const t = qrLib?.TEMPLATES.find(x => x.id === cardTemplate) ?? qrLib?.TEMPLATES[0]
               const activeBg = cardBgColor || t?.cardBg || '#ffffff'
+              const overlayLayer = cardOverlay > 0 ? `linear-gradient(rgba(0,0,0,${cardOverlay / 100}),rgba(0,0,0,${cardOverlay / 100})),` : ''
               const activeBgStyle = cardBgImage
-                ? { backgroundImage: `url(${cardBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                ? { backgroundImage: `${overlayLayer}url(${cardBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
                 : { background: activeBg }
               const activeText = cardTextColor || t?.accent || '#111111'
               const def = DEFAULT_TEXTS[cardTemplate]
@@ -417,7 +429,7 @@ export default function TablesPage() {
                 <div className="w-full flex justify-center">
                   <iframe
                     title="QR card preview"
-                    srcDoc={qrLib.getCardHTML(cardTemplate, qrModal?.table_number || '', cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || undefined, cardSubtext || undefined, cardLabel || undefined)}
+                    srcDoc={qrLib.getCardHTML(cardTemplate, qrModal?.table_number || '', cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || undefined, cardSubtext || undefined, cardLabel || undefined, cardOverlay)}
                     className="rounded-2xl shadow-xl border border-gray-100 pointer-events-none bg-white max-w-full"
                     style={{ width: 330, height: 460 }}
                   />

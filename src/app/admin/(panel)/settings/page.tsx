@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { useCropUpload } from '@/components/ui/useCropUpload'
 import { PLANS, type PlanId } from '@/lib/plans'
-import { Store, Palette, Camera, BadgeCheck, Zap, ImageIcon, MapPin, Clock, Globe } from 'lucide-react'
+import { Store, Palette, Camera, BadgeCheck, Zap, ImageIcon, MapPin, Clock, Globe, KeyRound, Smartphone, UserCheck, Layers } from 'lucide-react'
 
 declare global {
   interface Window {
@@ -32,6 +32,7 @@ interface RestaurantProfile {
   address: string | null
   logo_url: string | null
   cover_image_url: string | null
+  cover_overlay?: number
   maps_url: string | null
   opening_hours: string | null
   accepting_orders: boolean
@@ -49,11 +50,13 @@ export default function SettingsPage() {
   const { openCrop, cropModal, uploading } = useCropUpload('branding')
   const [error, setError] = useState('')
   const [upgrading, setUpgrading] = useState(false)
+  const [otpMode, setOtpMode] = useState<'customer' | 'manager'>('customer')
+  const [savingOtpMode, setSavingOtpMode] = useState(false)
   const { toast, showToast, dismissToast } = useToast()
 
   const [form, setForm] = useState({
     name: '', phone: '', address: '', logo_url: '', primary_color: '',
-    cover_image_url: '', maps_url: '', opening_hours: '', accepting_orders: true,
+    cover_image_url: '', cover_overlay: 62, maps_url: '', opening_hours: '', accepting_orders: true,
   })
 
   useEffect(() => {
@@ -69,6 +72,7 @@ export default function SettingsPage() {
             logo_url: r.logo_url || '',
             primary_color: r.primary_color || '',
             cover_image_url: r.cover_image_url || '',
+            cover_overlay: r.cover_overlay ?? 62,
             maps_url: r.maps_url || '',
             opening_hours: r.opening_hours || '',
             accepting_orders: r.accepting_orders ?? true,
@@ -77,7 +81,31 @@ export default function SettingsPage() {
       })
       .catch(() => setError('Could not load restaurant profile.'))
       .finally(() => setLoading(false))
+
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => { if (d?.otp_mode === 'manager') setOtpMode('manager') })
+      .catch(() => {})
   }, [])
+
+  async function changeOtpMode(mode: 'customer' | 'manager') {
+    if (mode === otpMode || savingOtpMode) return
+    const prev = otpMode
+    setOtpMode(mode)
+    setSavingOtpMode(true)
+    const res = await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ otp_mode: mode }),
+    })
+    if (!res.ok) {
+      setOtpMode(prev)
+      showToast('Could not update the OTP mode.')
+    } else {
+      showToast(mode === 'manager' ? 'Manager will now share table OTPs.' : 'Customers now get the OTP themselves.')
+    }
+    setSavingOtpMode(false)
+  }
 
   function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -163,7 +191,7 @@ export default function SettingsPage() {
   if (loading) return <p className="text-gray-400">Loading…</p>
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-6xl">
       {toast && <Toast message={toast} onDismiss={dismissToast} />}
 
       <div className="mb-8">
@@ -198,6 +226,8 @@ export default function SettingsPage() {
           )}
         </div>
       )}
+
+      <div className="grid lg:grid-cols-2 gap-6 items-start">
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -263,8 +293,12 @@ export default function SettingsPage() {
             onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Street, city" />
         </div>
 
+      </div>
+
+      {/* Right column: public page + ordering */}
+      <div className="space-y-6">
         {/* ── Public page (bicres.com/subdomain) ── */}
-        <div className="border-t border-gray-100 pt-5">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <h2 className="font-semibold text-gray-900 flex items-center gap-2 mb-1">
             <Globe className="w-4 h-4 text-orange-500" /> Public page
           </h2>
@@ -276,8 +310,15 @@ export default function SettingsPage() {
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Cover photo</label>
             {form.cover_image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={form.cover_image_url} alt="Cover" className="w-full h-36 rounded-xl object-cover border border-gray-200" />
+              // Live preview: photo + adjustable dark layer + sample text
+              <div className="relative w-full h-36 rounded-xl overflow-hidden border border-gray-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={form.cover_image_url} alt="Cover" className="w-full h-full object-cover" />
+                <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${form.cover_overlay / 100})` }} />
+                <p className="absolute inset-0 flex items-center justify-center text-white font-black text-2xl tracking-tight px-4 text-center">
+                  {form.name || 'Your Restaurant'}
+                </p>
+              </div>
             ) : (
               <div className="w-full h-36 rounded-xl bg-gray-100 border border-dashed border-gray-300 flex flex-col items-center justify-center gap-1.5">
                 <ImageIcon className="w-6 h-6 text-gray-400" />
@@ -295,6 +336,18 @@ export default function SettingsPage() {
                 </button>
               )}
             </div>
+            {/* Photo layer slider — darker photo, clearer text */}
+            {form.cover_image_url && (
+              <div className="flex items-center gap-3 mt-3">
+                <span className="text-xs text-gray-500 whitespace-nowrap flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5" /> Photo layer
+                </span>
+                <input type="range" min={0} max={90} step={5} value={form.cover_overlay}
+                  onChange={e => setForm(f => ({ ...f, cover_overlay: Number(e.target.value) }))}
+                  className="flex-1 accent-orange-500 cursor-pointer" />
+                <span className="text-xs text-gray-400 w-9">{form.cover_overlay}%</span>
+              </div>
+            )}
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4 mb-5">
@@ -330,8 +383,54 @@ export default function SettingsPage() {
           </label>
         </div>
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>}
+        {/* ── Table OTP mode ── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h2 className="font-semibold text-gray-900 flex items-center gap-2 mb-1">
+          <KeyRound className="w-4 h-4 text-orange-500" /> Table OTP
+        </h2>
+        <p className="text-xs text-gray-400 mb-4">
+          Who shares the table code when a customer places their first order. Saved instantly.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {([
+            {
+              id: 'customer' as const,
+              icon: Smartphone,
+              title: 'Customer gets the OTP',
+              desc: 'Self-service: the first customer sees the code on their phone and shares it at the table.',
+            },
+            {
+              id: 'manager' as const,
+              icon: UserCheck,
+              title: 'Manager shares the OTP',
+              desc: 'Staff verify the table in person: the code shows only on staff dashboards until shared.',
+            },
+          ]).map(opt => (
+            <button key={opt.id} type="button" disabled={savingOtpMode}
+              onClick={() => changeOtpMode(opt.id)}
+              className={`text-left rounded-xl border-2 p-4 transition-colors ${
+                otpMode === opt.id ? 'border-orange-400 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <opt.icon className={`w-4 h-4 ${otpMode === opt.id ? 'text-orange-500' : 'text-gray-400'}`} />
+                <span className={`text-sm font-semibold ${otpMode === opt.id ? 'text-orange-700' : 'text-gray-700'}`}>
+                  {opt.title}
+                </span>
+                {otpMode === opt.id && (
+                  <span className="ml-auto text-[10px] font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">ON</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">{opt.desc}</p>
+            </button>
+          ))}
+          </div>
+        </div>
+      </div>
 
+      </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mt-6">{error}</div>}
+
+      <div className="mt-6">
         <Button loading={saving} onClick={save}>Save Settings</Button>
       </div>
       {cropModal}

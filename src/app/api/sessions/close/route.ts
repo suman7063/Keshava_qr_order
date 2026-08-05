@@ -36,7 +36,15 @@ export async function POST(request: Request) {
     .eq('id', session.table_id)
     .eq('restaurant_id', ctx.restaurantId)
 
-  // Mark all non-cancelled orders as served
+  // Settle the session's orders: never-accepted ones were not made — cancel
+  // them (they must not count as revenue); everything else was delivered.
+  await ctx.db
+    .from('orders')
+    .update({ status: 'cancelled' })
+    .eq('session_id', session_id)
+    .eq('restaurant_id', ctx.restaurantId)
+    .eq('status', 'pending')
+
   await ctx.db
     .from('orders')
     .update({ status: 'served' })

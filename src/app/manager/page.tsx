@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import {
   BarChart3, DollarSign, ShoppingBag, TrendingUp, Clock,
   CheckCircle, LogOut, RefreshCw, AlertCircle,
-  ClipboardList, LayoutDashboard, ChefHat, FileText
+  ClipboardList, LayoutDashboard, ChefHat, FileText, KeyRound, Users
 } from 'lucide-react'
 
 interface BillSession {
@@ -23,18 +23,32 @@ interface BillSession {
   table?: { table_number: string }
 }
 
+interface ActiveSession {
+  id: string
+  table_id: string
+  customer_name?: string
+  phone?: string
+  otp?: string
+  otp_verified?: boolean
+  status: string
+  started_at: string
+  bill_requested: boolean
+  table?: { table_number: string }
+}
+
 const STATUS_VARIANT: Record<OrderStatus, 'warning' | 'info' | 'secondary' | 'success' | 'default' | 'danger'> = {
   pending: 'danger', confirmed: 'warning', preparing: 'info',
   ready: 'secondary', served: 'success', cancelled: 'default',
 }
 
-type Tab = 'overview' | 'new-orders' | 'all-orders' | 'bill-requests'
+type Tab = 'overview' | 'new-orders' | 'tables' | 'all-orders' | 'bill-requests'
 
 export default function ManagerPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('new-orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [billSessions, setBillSessions] = useState<BillSession[]>([])
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
@@ -46,6 +60,7 @@ export default function ManagerPage() {
   const [managerAvatar, setManagerAvatar] = useState('')
   const [restaurantName, setRestaurantName] = useState('')
   const pendingCountRef = useRef(0)
+  const otpPendingCountRef = useRef(0)
 
   // Short beep so staff notice new orders without watching the screen
   function playNewOrderSound() {
@@ -86,9 +101,22 @@ export default function ManagerPage() {
     setBillSessions(Array.isArray(data) ? data : [])
   }
 
+  async function fetchSessions() {
+    const res = await fetch('/api/sessions/all')
+    if (!res.ok) return
+    const data = await res.json()
+    const active: ActiveSession[] = (Array.isArray(data) ? data : []).filter((s: ActiveSession) => s.status === 'active')
+    // Beep when a new table is waiting for its code (manager OTP mode)
+    const needsOtp = active.filter(s => s.otp_verified === false).length
+    if (needsOtp > otpPendingCountRef.current) playNewOrderSound()
+    otpPendingCountRef.current = needsOtp
+    setActiveSessions(active)
+  }
+
   useEffect(() => {
     fetchOrders()
     fetchBillRequests()
+    fetchSessions()
     const supabase = createClient()
 
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -105,11 +133,11 @@ export default function ManagerPage() {
     const channel = supabase
       .channel('manager-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, fetchBillRequests)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, () => { fetchBillRequests(); fetchSessions() })
       .subscribe()
 
     // Realtime needs an authed socket; poll as a safety net as well
-    const poll = setInterval(() => { fetchOrders(); fetchBillRequests() }, 30000)
+    const poll = setInterval(() => { fetchOrders(); fetchBillRequests(); fetchSessions() }, 30000)
     return () => { supabase.removeChannel(channel); clearInterval(poll) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -255,6 +283,7 @@ export default function ManagerPage() {
   })
   const topItems = Object.values(itemCounts).sort((a, b) => b.count - a.count).slice(0, 5)
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter)
+  const otpPendingSessions = activeSessions.filter(s => s.otp_verified === false)
 
   function getElapsed(dateStr: string) {
     return Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000)
@@ -262,6 +291,7 @@ export default function ManagerPage() {
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; count?: number }[] = [
     { id: 'new-orders', label: 'New Orders', icon: <AlertCircle className="w-4 h-4" />, count: pendingOrders.length },
+    { id: 'tables', label: 'Tables', icon: <KeyRound className="w-4 h-4" />, count: otpPendingSessions.length },
     { id: 'bill-requests', label: 'Bill Requests', icon: <FileText className="w-4 h-4" />, count: billSessions.length },
     { id: 'all-orders', label: 'All Orders', icon: <ClipboardList className="w-4 h-4" /> },
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
@@ -507,6 +537,59 @@ export default function ManagerPage() {
                             <CheckCircle className="w-4 h-4 mr-1.5" /> Accept & Print
                           </Button>
                         </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB: TABLES (active sessions + their join codes) ── */}
+        {activeTab === 'tables' && (
+          <div>
+            {activeSessions.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
+                <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                <p className="text-gray-400 font-medium">No active tables</p>
+                <p className="text-gray-300 text-sm mt-1">Occupied tables and their OTPs will appear here</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {activeSessions.map(s => {
+                  const needsOtp = s.otp_verified === false
+                  return (
+                    <div key={s.id}
+                      className={cn('bg-white rounded-2xl shadow-sm p-5 border-2',
+                        needsOtp ? 'border-orange-400 shadow-md' : 'border-gray-100')}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="text-xl font-bold text-gray-900">Table {s.table?.table_number}</p>
+                          {s.customer_name && (
+                            <p className="text-sm text-gray-500 mt-0.5">{s.customer_name}{s.phone ? ` · ${s.phone}` : ''}</p>
+                          )}
+                        </div>
+                        {needsOtp && (
+                          <span className="flex items-center gap-1.5 bg-orange-100 text-orange-700 px-3 py-1.5 rounded-full text-xs font-bold animate-pulse">
+                            <KeyRound className="w-3.5 h-3.5" /> Needs OTP
+                          </span>
+                        )}
+                      </div>
+                      <div className={cn('rounded-xl p-4 text-center',
+                        needsOtp ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50 border border-gray-100')}>
+                        <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400 mb-1">Table OTP</p>
+                        <p className={cn('text-3xl font-bold tracking-widest',
+                          needsOtp ? 'text-orange-600' : 'text-gray-700')}>{s.otp || '—'}</p>
+                      </div>
+                      {needsOtp ? (
+                        <p className="text-xs text-orange-500 font-medium mt-3">
+                          Customer is waiting — please share this code at Table {s.table?.table_number}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-3">
+                          Started {new Date(s.started_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       )}
                     </div>
                   )

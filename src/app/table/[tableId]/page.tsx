@@ -10,7 +10,7 @@ import MenuTemplate2 from '@/lib/menu-templates/template2'
 import { Button } from '@/components/ui/Button'
 
 
-type Drawer = 'none' | 'cart' | 'customer-info' | 'show-otp' | 'verify-otp' | 'orders'
+type Drawer = 'none' | 'cart' | 'customer-info' | 'show-otp' | 'verify-otp' | 'manager-otp' | 'orders'
 
 export default function TablePage() {
   const params = useParams()
@@ -37,8 +37,10 @@ export default function TablePage() {
   const [requestingBill, setRequestingBill] = useState(false)
   const [currentCustomerName, setCurrentCustomerName] = useState('')
   const [tableNumber, setTableNumber] = useState('')
+  const [tableReserved, setTableReserved] = useState(false)
   const [showOtpBadge, setShowOtpBadge] = useState(false)
   const [showMenuImages, setShowMenuImages] = useState(true)
+  const [otpMode, setOtpMode] = useState<'customer' | 'manager'>('customer')
   const [restaurantName, setRestaurantName] = useState('')
   const [restaurantId, setRestaurantId] = useState('')
 
@@ -52,14 +54,32 @@ export default function TablePage() {
 
         setRestaurantId(data.table.restaurant_id)
         if (data.table?.table_number) setTableNumber(data.table.table_number)
+        setTableReserved(data.table?.status === 'reserved')
         if (data.restaurant?.name) setRestaurantName(data.restaurant.name)
         setCategories(Array.isArray(data.categories) ? data.categories : [])
-        setMenuItems(Array.isArray(data.items) ? data.items : [])
+        const items: MenuItem[] = Array.isArray(data.items) ? data.items : []
+        setMenuItems(items)
         setShowMenuImages(data.settings?.show_menu_images ?? true)
+        setOtpMode(data.settings?.otp_mode === 'manager' ? 'manager' : 'customer')
         if (Array.isArray(data.categories) && data.categories.length > 0) setActiveCategory(data.categories[0].id)
         // Restore the table join code from localStorage if session was already started
         const saved = localStorage.getItem(`otp-${tableId}`)
         if (saved) { setGeneratedOtp(saved); setShowOtpBadge(true) }
+        // Restore the cart from a previous visit; items are re-validated
+        // against the fresh menu (price + availability) before use.
+        try {
+          const savedCart: { id: string; quantity: number }[] = JSON.parse(localStorage.getItem(`cart-${tableId}`) || '[]')
+          const byId = new Map(items.map(i => [i.id, i]))
+          const restored = savedCart.flatMap(s => {
+            const mi = byId.get(s.id)
+            return mi && mi.is_available && Number.isInteger(s.quantity) && s.quantity > 0
+              ? [{ menu_item: mi, quantity: Math.min(s.quantity, 50) }]
+              : []
+          })
+          if (restored.length) setCart(restored)
+        } catch {
+          // corrupt saved cart — start fresh
+        }
       } catch (e) {
         setLoadError(String(e))
       } finally {
@@ -72,6 +92,13 @@ export default function TablePage() {
   function getSessionCode(): string {
     return localStorage.getItem(`otp-${tableId}`) || ''
   }
+
+  // Keep the cart across refreshes. The server re-verifies price and
+  // availability at order time, so a stale cart can never mis-charge.
+  useEffect(() => {
+    if (loading) return
+    localStorage.setItem(`cart-${tableId}`, JSON.stringify(cart.map(c => ({ id: c.menu_item.id, quantity: c.quantity }))))
+  }, [cart, loading, tableId])
 
   async function fetchSessionOrders(sessionId: string) {
     const res = await fetch(`/api/orders?session_id=${sessionId}`, {
@@ -117,6 +144,9 @@ export default function TablePage() {
         if (savedOtp) {
           // Session creator — place order directly
           await placeOrder(existing, currentCustomerName || existing.customer_name || 'Customer')
+        } else if (otpMode === 'manager' && currentCustomerName) {
+          // Session creator in manager mode who hasn't entered the code yet
+          setDrawer('manager-otp')
         } else {
           // New person joining — ask for OTP
           setDrawer('verify-otp')
@@ -142,15 +172,22 @@ export default function TablePage() {
       body: JSON.stringify({ table_id: tableId, phone, customer_name: name }),
     })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data.session || !data.otp) {
+    if (!res.ok || !data.session) {
       setOtpError(data.error || 'Could not start your order. Please try again.')
       setPlacing(false)
       return
     }
     setSession(data.session)
-    setGeneratedOtp(data.otp)
-    localStorage.setItem(`otp-${tableId}`, data.otp)
-    setDrawer('show-otp')
+    if (data.otp) {
+      // Customer mode: the code is shown on this screen
+      setGeneratedOtp(data.otp)
+      localStorage.setItem(`otp-${tableId}`, data.otp)
+      setDrawer('show-otp')
+    } else {
+      // Manager mode: staff hold the code — ask the customer to get it
+      setOtpInput('')
+      setDrawer('manager-otp')
+    }
     setPlacing(false)
   }
 
@@ -181,7 +218,7 @@ export default function TablePage() {
     setPlacing(false)
   }
 
-  async function handleVerifyOtp() {
+  async function verifyOtpAndOrder(customerName: string, invalidMsg: string) {
     if (!otpInput || !session) return
     setOtpError('')
     setPlacing(true)
@@ -192,15 +229,22 @@ export default function TablePage() {
     })
     const data = await res.json()
     if (!res.ok) {
-      setOtpError('Invalid code. Ask the first customer for their table code.')
+      setOtpError(invalidMsg)
       setPlacing(false)
       return
     }
-    // Guest verified — remember the code so they can order & view bills too
+    // Verified — remember the code so they can order & view bills too
     localStorage.setItem(`otp-${tableId}`, otpInput)
     setGeneratedOtp(otpInput)
     setShowOtpBadge(true)
-    await placeOrder(data.session, guestName.trim() || 'Guest')
+    await placeOrder(data.session, customerName)
+  }
+
+  async function handleVerifyOtp() {
+    await verifyOtpAndOrder(
+      guestName.trim() || 'Guest',
+      'Invalid code. Ask the first customer for their table code.'
+    )
   }
 
   async function requestBill() {
@@ -241,8 +285,16 @@ export default function TablePage() {
           if (existing) {
             setSession(existing)
             setBillRequested(existing.bill_requested || false)
+            // Keep order statuses live too (accepted / cooking / ready) —
+            // the drawer must update without a close-and-reopen.
+            if (getSessionCode()) fetchSessionOrders(existing.id)
           } else if (body.session === null) {
             // Staff closed the table — reset.
+            if (localStorage.getItem(`otp-${tableId}`)) {
+              // This phone was part of the closed session — drop its leftover cart
+              localStorage.removeItem(`cart-${tableId}`)
+              setCart([])
+            }
             setSession(null)
             setBillRequested(false)
             setSessionOrders([])
@@ -318,6 +370,15 @@ export default function TablePage() {
           </div>
         </div>
       </div>
+
+      {/* Reserved notice — server also blocks ordering, this is the heads-up */}
+      {tableReserved && !session && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5">
+          <p className="max-w-lg mx-auto text-xs text-amber-800 font-medium">
+            ⚠️ This table is reserved — please contact our staff before ordering.
+          </p>
+        </div>
+      )}
 
       {/* Category Tabs */}
       <div className="sticky top-0 bg-white shadow-sm z-10">
@@ -416,7 +477,11 @@ export default function TablePage() {
                   </button>
                 </div>
                 <div className="p-5 space-y-4">
-                  <p className="text-gray-400 text-sm">We'll generate an OTP for your order</p>
+                  <p className="text-gray-400 text-sm">
+                    {otpMode === 'manager'
+                      ? 'Our staff will come to your table with an OTP'
+                      : "We'll generate an OTP for your order"}
+                  </p>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Name</label>
                     <div className="relative">
@@ -435,6 +500,7 @@ export default function TablePage() {
                         placeholder="Enter phone number" value={phone} onChange={e => setPhone(e.target.value)} />
                     </div>
                   </div>
+                  {otpError && <p className="text-red-500 text-sm text-center">{otpError}</p>}
                   <Button size="lg" className="w-full bg-[#1e3a5f] hover:bg-[#16304d]" loading={placing} onClick={handleCreateSession}>
                     Get OTP
                   </Button>
@@ -466,6 +532,36 @@ export default function TablePage() {
                   <Button size="lg" className="w-full bg-[#1e3a5f] hover:bg-[#16304d]" loading={placing}
                     onClick={() => session && placeOrder(session, currentCustomerName)}>
                     Confirm & Place Order
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {/* MANAGER OTP — creator waits for staff to bring the code */}
+            {drawer === 'manager-otp' && (
+              <>
+                <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                  <h2 className="text-xl font-bold text-gray-900">Enter OTP</h2>
+                  <button onClick={() => setDrawer('none')} className="p-2 hover:bg-gray-100 rounded-xl">
+                    <ChevronDown className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="flex items-start gap-3 bg-blue-50 rounded-xl p-4">
+                    <KeyRound className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-blue-700">
+                      Our staff will come to your table with the OTP.
+                      Enter it below to place your order.
+                    </p>
+                  </div>
+                  <input type="number"
+                    className="w-full text-center text-4xl font-bold tracking-widest py-4 border-2 border-gray-200 rounded-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] placeholder:text-gray-300"
+                    placeholder="------" maxLength={6}
+                    value={otpInput} onChange={e => setOtpInput(e.target.value.slice(0, 6))} />
+                  {otpError && <p className="text-red-500 text-sm text-center">{otpError}</p>}
+                  <Button size="lg" className="w-full bg-[#1e3a5f] hover:bg-[#16304d]" loading={placing}
+                    onClick={() => verifyOtpAndOrder(currentCustomerName || 'Customer', 'Invalid code. Please ask our staff for the table code.')}>
+                    Verify & Place Order
                   </Button>
                 </div>
               </>
@@ -550,6 +646,26 @@ export default function TablePage() {
                         {order.status === 'confirmed' && (
                           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
                             Confirmed ✓
+                          </span>
+                        )}
+                        {order.status === 'preparing' && (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
+                            Cooking 👨‍🍳
+                          </span>
+                        )}
+                        {order.status === 'ready' && (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                            Ready 🍽️
+                          </span>
+                        )}
+                        {order.status === 'served' && (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                            Served ✓
+                          </span>
+                        )}
+                        {order.status === 'cancelled' && (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-600">
+                            Cancelled
                           </span>
                         )}
                       </div>

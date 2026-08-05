@@ -61,7 +61,7 @@ export default async function RestaurantPage({ params }: Props) {
   const supabase = createPublicClient()
   const { data } = await supabase
     .from('restaurants')
-    .select('id, name, subdomain, phone, status, address, logo_url, cover_image_url, maps_url, opening_hours, accepting_orders')
+    .select('id, name, subdomain, phone, status, address, logo_url, cover_image_url, cover_overlay, maps_url, opening_hours, accepting_orders')
     .eq('subdomain', slug)
     .eq('status', 'active')
     .single()

@@ -75,11 +75,29 @@ export async function POST(request: Request) {
   // The table must belong to this restaurant.
   const { data: table } = await db
     .from('restaurant_tables')
-    .select('id')
+    .select('id, status')
     .eq('id', table_id)
     .eq('restaurant_id', restaurantId)
     .single()
   if (!table) return NextResponse.json({ error: 'Table not found' }, { status: 404 })
+
+  // A reserved table is being held for someone — staff must free it first.
+  if (table.status === 'reserved') {
+    return NextResponse.json(
+      { error: 'This table is reserved. Please ask our staff to seat you.' },
+      { status: 403 }
+    )
+  }
+
+  // In manager mode the join code goes to staff, not to the customer's
+  // screen — staff tell it to the diners in person. otp_verified stays
+  // FALSE until a diner proves they received it (PATCH below).
+  const { data: settings } = await db
+    .from('restaurant_settings')
+    .select('otp_mode')
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle()
+  const managerGivesOtp = settings?.otp_mode === 'manager'
 
   const otp = generateJoinCode()
   const { data, error } = await db
@@ -89,7 +107,7 @@ export async function POST(request: Request) {
       phone: phone || null,
       customer_name: customer_name.trim().slice(0, 200),
       otp,
-      otp_verified: true,
+      otp_verified: !managerGivesOtp,
       restaurant_id: restaurantId,
     })
     .select(PUBLIC_SESSION_SELECT)
@@ -105,7 +123,9 @@ export async function POST(request: Request) {
 
   await db.from('restaurant_tables').update({ status: 'occupied' }).eq('id', table_id)
 
-  // The join code is returned exactly once, to its creator.
+  // The join code is returned exactly once, to its creator — except in
+  // manager mode, where only staff dashboards can see it.
+  if (managerGivesOtp) return NextResponse.json({ session: data, otp_mode: 'manager' })
   return NextResponse.json({ session: data, otp })
 }
 
@@ -124,6 +144,9 @@ export async function PATCH(request: Request) {
 
   const access = await requireSessionAccess(request, session_id, otp)
   if (access instanceof NextResponse) return access
+
+  // Code reached the diners — staff dashboards stop flagging this table.
+  await access.db.from('table_sessions').update({ otp_verified: true }).eq('id', session_id)
 
   return NextResponse.json({ success: true, session: access.session })
 }

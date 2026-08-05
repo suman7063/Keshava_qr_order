@@ -50,6 +50,7 @@ interface RestaurantData {
   address: string | null
   logo_url: string | null
   cover_image_url: string | null
+  cover_overlay?: number | null
   maps_url: string | null
   opening_hours: string | null
   accepting_orders: boolean
@@ -103,8 +104,8 @@ function RestaurantHomePage({ restaurant }: { restaurant: RestaurantData }) {
           className="object-cover"
           priority
         />
-        {/* Dark overlay */}
-        <div className="absolute inset-0 bg-black/62" />
+        {/* Dark overlay — owner-adjustable "photo layer" (defaults to the old 62%) */}
+        <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${(restaurant.cover_overlay ?? 62) / 100})` }} />
         {/* Gradient from bottom */}
         <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-black/30" />
 

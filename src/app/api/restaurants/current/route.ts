@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getOwnRestaurantId } from '@/lib/restaurant'
 import { requireStaff } from '@/lib/auth'
 
-const PUBLIC_FIELDS = 'id, name, subdomain, phone, address, logo_url, cover_image_url, maps_url, opening_hours, accepting_orders, primary_color, status'
+const PUBLIC_FIELDS = 'id, name, subdomain, phone, address, logo_url, cover_image_url, cover_overlay, maps_url, opening_hours, accepting_orders, primary_color, status'
 
 // Resolve the "current" restaurant:
 //  1. ?restaurant_id=<uuid> — customer/public flow
@@ -82,6 +82,13 @@ export async function PATCH(request: Request) {
   }
   if (typeof body.opening_hours === 'string') updates.opening_hours = body.opening_hours.slice(0, 200) || null
   if (typeof body.accepting_orders === 'boolean') updates.accepting_orders = body.accepting_orders
+  if (body.cover_overlay !== undefined) {
+    const n = Number(body.cover_overlay)
+    if (!Number.isInteger(n) || n < 0 || n > 90) {
+      return NextResponse.json({ error: 'Invalid photo layer value' }, { status: 400 })
+    }
+    updates.cover_overlay = n
+  }
   if (typeof body.primary_color === 'string') {
     if (body.primary_color && !/^#[0-9a-fA-F]{6}$/.test(body.primary_color)) {
       return NextResponse.json({ error: 'Invalid color' }, { status: 400 })

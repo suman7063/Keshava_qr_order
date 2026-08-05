@@ -5,7 +5,7 @@ import { requireStaff } from '@/lib/auth'
 const UPDATABLE_FIELDS = [
   'table_number', 'capacity', 'status', 'qr_code_url', 'card_image',
   'card_template', 'card_bg_color', 'card_bg_image', 'card_text_color',
-  'card_heading', 'card_subtext', 'card_label',
+  'card_heading', 'card_subtext', 'card_label', 'card_overlay',
 ] as const
 
 // Public: the customer QR landing page. The tableId (an unguessable UUID) is
@@ -45,6 +45,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (updates.status && !['available', 'occupied', 'reserved'].includes(String(updates.status))) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+  }
+  if ('card_overlay' in updates) {
+    const n = Number(updates.card_overlay)
+    if (!Number.isInteger(n) || n < 0 || n > 80) {
+      return NextResponse.json({ error: 'Invalid photo layer value' }, { status: 400 })
+    }
+    updates.card_overlay = n
   }
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })

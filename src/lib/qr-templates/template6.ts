@@ -1,4 +1,5 @@
 import type { QRTemplate } from '@/types'
+import { bgImageStyle } from './bg'
 
 export const template6Config = {
   id: 'template6' as QRTemplate,
@@ -7,10 +8,10 @@ export const template6Config = {
   accent: '#ffffff',
 }
 
-export function getTemplate6HTML(tableNumber: string, qrDataUrl: string, bgColor?: string, textColor?: string, bgImage?: string, headingProp?: string, subtextProp?: string, labelProp?: string) {
+export function getTemplate6HTML(tableNumber: string, qrDataUrl: string, bgColor?: string, textColor?: string, bgImage?: string, headingProp?: string, subtextProp?: string, labelProp?: string, overlay?: number) {
   const cardBg = bgColor || template6Config.cardBg
   const accent = textColor || template6Config.accent
-  const bgStyle = bgImage ? `background-image:url(${bgImage});background-size:cover;background-position:center` : `background:linear-gradient(140deg, #ff8e53, ${cardBg} 55%, #c44569)`
+  const bgStyle = bgImage ? bgImageStyle(bgImage, overlay) : `background:linear-gradient(140deg, #ff8e53, ${cardBg} 55%, #c44569)`
   const heading = headingProp || 'MENU'
   const subtext = subtextProp || 'Scan to Order'
   const label   = labelProp   || 'Digital'

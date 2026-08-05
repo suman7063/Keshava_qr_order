@@ -37,7 +37,15 @@ export interface RestaurantTable {
   card_heading?: string
   card_subtext?: string
   card_label?: string
+  card_overlay?: number
   created_at: string
+}
+
+export interface KitchenStation {
+  id: string
+  name: string
+  display_order: number
+  created_at?: string
 }
 
 export interface MenuCategory {
@@ -46,12 +54,14 @@ export interface MenuCategory {
   description?: string
   display_order: number
   is_active: boolean
+  default_station_id?: string | null
   created_at: string
 }
 
 export interface MenuItem {
   id: string
   category_id: string
+  station_id?: string | null
   name: string
   description?: string
   price: number

@@ -1,6 +1,6 @@
 /** Whitelisted client-updatable columns for menu items. */
 export const ITEM_FIELDS = [
-  'category_id', 'name', 'description', 'price', 'image_url', 'is_available',
+  'category_id', 'station_id', 'name', 'description', 'price', 'image_url', 'is_available',
   'is_vegetarian', 'is_vegan', 'allergens', 'prep_time_minutes', 'display_order',
 ] as const
 
@@ -23,6 +23,10 @@ export function validateMenuItemFields(obj: Record<string, unknown>): string | n
   }
   if ('name' in obj && typeof obj.name === 'string') obj.name = obj.name.slice(0, 200)
   if ('description' in obj && typeof obj.description === 'string') obj.description = obj.description.slice(0, 1000)
+  if ('station_id' in obj) {
+    if (obj.station_id === '') obj.station_id = null
+    if (obj.station_id !== null && typeof obj.station_id !== 'string') return 'Invalid kitchen'
+  }
   if ('allergens' in obj && obj.allergens != null) {
     if (!Array.isArray(obj.allergens) || obj.allergens.length > 30) return 'Invalid allergens'
     obj.allergens = obj.allergens.filter(a => typeof a === 'string').slice(0, 30).map(a => String(a).slice(0, 50))

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS restaurants (
   maps_url      TEXT,
   opening_hours TEXT,
   accepting_orders BOOLEAN NOT NULL DEFAULT TRUE,
+  cover_overlay INTEGER      NOT NULL DEFAULT 62 CHECK (cover_overlay BETWEEN 0 AND 90),
   primary_color VARCHAR(7),
   plan          VARCHAR(50)  NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'starter', 'pro')),
   status        VARCHAR(20)  NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS restaurant_tables (
   card_heading  TEXT,
   card_subtext  TEXT,
   card_label    TEXT,
+  card_overlay  INTEGER      NOT NULL DEFAULT 0 CHECK (card_overlay BETWEEN 0 AND 80),
   created_at    TIMESTAMPTZ  DEFAULT NOW(),
   UNIQUE(restaurant_id, table_number)
 );
@@ -117,11 +119,26 @@ CREATE TABLE IF NOT EXISTS order_items (
   created_at   TIMESTAMPTZ   DEFAULT NOW()
 );
 
+-- ── Kitchen Stations ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS kitchen_stations (
+  id            UUID          DEFAULT uuid_generate_v4() PRIMARY KEY,
+  restaurant_id UUID          NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+  name          VARCHAR(100)  NOT NULL,
+  display_order INTEGER       NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ   DEFAULT NOW(),
+  UNIQUE (restaurant_id, name)
+);
+
+-- KOT routing: item override wins, else category default, else "Main Kitchen".
+ALTER TABLE menu_categories ADD COLUMN IF NOT EXISTS default_station_id UUID REFERENCES kitchen_stations(id) ON DELETE SET NULL;
+ALTER TABLE menu_items      ADD COLUMN IF NOT EXISTS station_id         UUID REFERENCES kitchen_stations(id) ON DELETE SET NULL;
+
 -- ── Restaurant Settings ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS restaurant_settings (
   id               SERIAL       PRIMARY KEY,
   restaurant_id    UUID         UNIQUE REFERENCES restaurants(id) ON DELETE CASCADE,
   show_menu_images BOOLEAN      NOT NULL DEFAULT TRUE,
+  otp_mode         VARCHAR(10)  NOT NULL DEFAULT 'customer' CHECK (otp_mode IN ('customer', 'manager')),
   created_at       TIMESTAMPTZ  DEFAULT NOW()
 );
 
@@ -182,6 +199,7 @@ ALTER TABLE menu_items          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE table_sessions      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kitchen_stations    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE restaurant_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_roles          ENABLE ROW LEVEL SECURITY;
 
