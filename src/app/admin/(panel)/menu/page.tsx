@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Download, Tags, ChefHat, Info } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download, Tags, ChefHat, Info, Upload, FileSpreadsheet } from 'lucide-react'
+import { parseCSV } from '@/lib/csv'
 import { VegMark } from '@/components/ui/VegMark'
 import { deleteImage } from '@/lib/uploadImage'
 import { useCropUpload } from '@/components/ui/useCropUpload'
@@ -41,6 +42,11 @@ export default function MenuPage() {
   const [stationName, setStationName] = useState('')
   const [stationError, setStationError] = useState('')
   const [savingStation, setSavingStation] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importRows, setImportRows] = useState<{ category: string; name: string; price: number; is_vegetarian: boolean; description?: string }[]>([])
+  const [importErrors, setImportErrors] = useState<string[]>([])
+  const [importFileName, setImportFileName] = useState('')
+  const [importing, setImporting] = useState(false)
   const [form, setForm] = useState({
     name: '', description: '', price: '', category_id: '', station_id: '',
     is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '',
@@ -190,6 +196,86 @@ export default function MenuPage() {
     }
   }
 
+  function downloadSampleCSV() {
+    const sample = [
+      'Category,Item Name,Price,Veg,Description',
+      'South Indian,Masala Dosa,75,yes,Crispy dosa with potato masala',
+      'South Indian,Idly (3),45,yes,',
+      'Chinese,Veg Fried Rice,120,yes,',
+      'Chinese,Paneer Chilly,200,yes,',
+      'Hot Beverages,Filter Coffee,25,yes,',
+      'Snacks,Samosa,25,yes,',
+    ].join('\n')
+    const blob = new Blob([sample], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'menu-import-sample.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setImportFileName(file.name)
+    const grid = parseCSV(await file.text())
+    if (grid.length < 2) {
+      setImportRows([]); setImportErrors(['File is empty — needs a header row plus at least one item.'])
+      return
+    }
+    const header = grid[0].map(h => h.trim().toLowerCase())
+    const col = (want: string[]) => header.findIndex(h => want.some(w => h.includes(w)))
+    const cCat = col(['categ']), cName = col(['item', 'name']), cPrice = col(['price'])
+    const cVeg = col(['veg']), cDesc = col(['desc'])
+    if (cCat === -1 || cName === -1 || cPrice === -1) {
+      setImportRows([])
+      setImportErrors(['Header must include Category, Item Name and Price columns. Download the sample CSV to see the format.'])
+      return
+    }
+    const rows: typeof importRows = []
+    const errors: string[] = []
+    grid.slice(1).forEach((r, i) => {
+      const category = (r[cCat] || '').trim()
+      const name = (r[cName] || '').trim()
+      const price = Number((r[cPrice] || '').replace(/[₹,\s]/g, ''))
+      if (!category || !name) { errors.push(`Row ${i + 2}: category and item name are required`); return }
+      if (Number.isNaN(price) || price < 0) { errors.push(`Row ${i + 2} (${name}): invalid price "${r[cPrice]}"`); return }
+      const vegRaw = cVeg === -1 ? '' : (r[cVeg] || '').trim().toLowerCase()
+      rows.push({
+        category, name, price,
+        is_vegetarian: !['no', 'n', 'non-veg', 'nonveg', 'non veg', 'false', '0'].includes(vegRaw),
+        description: cDesc === -1 ? undefined : (r[cDesc] || '').trim() || undefined,
+      })
+    })
+    setImportRows(rows)
+    setImportErrors(errors)
+  }
+
+  async function runImport() {
+    if (importRows.length === 0) return
+    setImporting(true)
+    const res = await fetch('/api/menu-items/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: importRows }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      showToast(data.error || 'Import failed. Please try again.')
+    } else {
+      const bits = [`${data.items_created} item${data.items_created === 1 ? '' : 's'} imported`]
+      if (data.categories_created) bits.push(`${data.categories_created} new categor${data.categories_created === 1 ? 'y' : 'ies'}`)
+      if (data.skipped) bits.push(`${data.skipped} duplicate${data.skipped === 1 ? '' : 's'} skipped`)
+      showToast(bits.join(' · ') + '!')
+      setShowImportModal(false)
+      setImportRows([]); setImportErrors([]); setImportFileName('')
+      fetchData()
+    }
+    setImporting(false)
+  }
+
   function exportCSV() {
     const header = 'Name,Description,Price,Category,Vegetarian,Vegan,Available,Prep Time (min)'
     const rows = items.map(item => [
@@ -328,6 +414,11 @@ export default function MenuPage() {
           <button onClick={() => { setShowStationModal(true); setStationError('') }}
             className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
             <ChefHat className="w-4 h-4" /> Kitchens
+          </button>
+          {/* Import CSV */}
+          <button onClick={() => { setShowImportModal(true); setImportRows([]); setImportErrors([]); setImportFileName('') }}
+            className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
+            <Upload className="w-4 h-4" /> Import
           </button>
           {/* Export buttons */}
           <div className="flex items-center gap-1 border border-gray-200 rounded-xl overflow-hidden">
@@ -798,6 +889,59 @@ export default function MenuPage() {
 
           <div className="flex justify-end pt-1">
             <Button variant="outline" onClick={() => setShowStationModal(false)}>Done</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Import CSV Modal */}
+      <Modal isOpen={showImportModal} onClose={() => setShowImportModal(false)} title="Import Menu from CSV">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Fill a CSV with <span className="font-semibold text-gray-700">Category, Item Name, Price</span> (required)
+            and <span className="font-semibold text-gray-700">Veg</span> (yes/no), <span className="font-semibold text-gray-700">Description</span> (optional).
+            No image column — photos can be added later by editing items. New categories are created automatically.
+          </p>
+
+          <button onClick={downloadSampleCSV}
+            className="flex items-center gap-1.5 text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline">
+            <Download className="w-4 h-4" /> Download sample CSV
+          </button>
+
+          <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-2xl py-8 cursor-pointer hover:border-orange-400 transition-colors">
+            <FileSpreadsheet className="w-8 h-8 text-gray-300" />
+            <span className="text-sm font-medium text-gray-600">{importFileName || 'Choose your CSV file'}</span>
+            <span className="text-xs text-gray-400">.csv — up to 500 items</span>
+            <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportFile} />
+          </label>
+
+          {(importRows.length > 0 || importErrors.length > 0) && (
+            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+              {importRows.length > 0 && (
+                <p className="text-sm font-semibold text-gray-800">
+                  ✅ {importRows.length} item{importRows.length === 1 ? '' : 's'} ready
+                  · {new Set(importRows.map(r => r.category.toLowerCase())).size} categor{new Set(importRows.map(r => r.category.toLowerCase())).size === 1 ? 'y' : 'ies'}
+                  {(() => {
+                    const existing = new Set(categories.map(c => c.name.toLowerCase()))
+                    const fresh = [...new Set(importRows.map(r => r.category.toLowerCase()))].filter(c => !existing.has(c)).length
+                    return fresh > 0 ? ` (${fresh} new)` : ''
+                  })()}
+                </p>
+              )}
+              {importErrors.length > 0 && (
+                <div className="text-xs text-red-600 space-y-0.5">
+                  <p className="font-semibold">⚠️ {importErrors.length} row{importErrors.length === 1 ? '' : 's'} will be skipped:</p>
+                  {importErrors.slice(0, 5).map((er, i) => <p key={i}>{er}</p>)}
+                  {importErrors.length > 5 && <p>…and {importErrors.length - 5} more</p>}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={() => setShowImportModal(false)}>Cancel</Button>
+            <Button className="flex-1" loading={importing} disabled={importRows.length === 0} onClick={runImport}>
+              Import {importRows.length > 0 ? `${importRows.length} items` : ''}
+            </Button>
           </div>
         </div>
       </Modal>
