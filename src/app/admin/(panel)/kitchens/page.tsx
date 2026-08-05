@@ -30,7 +30,7 @@ export default function KitchensPage() {
     const menuItems = itemRes.ok ? await itemRes.json() : []
     setStations(Array.isArray(stationList) ? stationList : [])
     setCategories(Array.isArray(cats) ? cats : [])
-    setItems(Array.isArray(menuItems) ? menuItems : [])
+    setItems((Array.isArray(menuItems) ? menuItems : []).filter((i: MenuItem) => !i.is_archived))
     setLoading(false)
   }
 

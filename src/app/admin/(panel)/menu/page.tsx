@@ -79,7 +79,7 @@ export default function MenuPage() {
       const restaurant = restRes.ok ? await restRes.json() : null
       const stationList = stationRes.ok ? await stationRes.json() : []
       setCategories(Array.isArray(cats) ? cats : [])
-      setItems(Array.isArray(menuItems) ? menuItems : [])
+      setItems((Array.isArray(menuItems) ? menuItems : []).filter((i: MenuItem) => !i.is_archived))
       setStations(Array.isArray(stationList) ? stationList : [])
       setShowMenuImages(settings.show_menu_images ?? true)
       if (restaurant?.name) setRestaurantName(restaurant.name)
@@ -328,9 +328,11 @@ export default function MenuPage() {
   async function deleteItem(id: string) {
     if (!confirm('Delete this menu item?')) return
     const res = await fetch(`/api/menu-items/${id}`, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
       showToast(data.error || 'Could not delete the item.')
+    } else if (data.archived) {
+      showToast('Item had past orders — archived instead (hidden everywhere, history stays).')
     }
     fetchData()
   }

@@ -66,10 +66,15 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     .eq('restaurant_id', ctx.restaurantId)
   if (error) {
     if (error.code === '23503') {
-      return NextResponse.json(
-        { error: 'This item has past orders. Mark it unavailable instead of deleting.' },
-        { status: 409 }
-      )
+      // Referenced by past orders — archive instead: hidden everywhere,
+      // order history stays intact.
+      const { error: archiveError } = await ctx.db
+        .from('menu_items')
+        .update({ is_archived: true, is_available: false })
+        .eq('id', id)
+        .eq('restaurant_id', ctx.restaurantId)
+      if (archiveError) return NextResponse.json({ error: archiveError.message }, { status: 500 })
+      return NextResponse.json({ success: true, archived: true })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

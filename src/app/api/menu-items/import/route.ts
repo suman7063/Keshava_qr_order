@@ -67,10 +67,12 @@ export async function POST(request: Request) {
 
   // Skip duplicates: same item name (case-insensitive) in the same category —
   // keyed by category name for rows whose category doesn't exist yet.
+  // Archived items don't block a re-import of the same name
   const { data: existingItems } = await ctx.db
     .from('menu_items')
     .select('id, name, category_id, subcategory')
     .eq('restaurant_id', ctx.restaurantId)
+    .eq('is_archived', false)
   const existingByKey = new Map((existingItems || []).map(i => [`${i.category_id}:${(i.name as string).toLowerCase()}`, i]))
 
   const seen = new Set<string>()

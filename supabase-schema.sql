@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
   price             DECIMAL(10,2) NOT NULL CHECK (price >= 0),
   image_url         TEXT,
   is_available      BOOLEAN      NOT NULL DEFAULT TRUE,
+  is_archived       BOOLEAN      NOT NULL DEFAULT FALSE,
   is_vegetarian     BOOLEAN      NOT NULL DEFAULT FALSE,
   is_vegan          BOOLEAN      NOT NULL DEFAULT FALSE,
   allergens         TEXT[]       DEFAULT '{}',

@@ -28,7 +28,7 @@ export default function CategoriesPage() {
     const menuItems = itemRes.ok ? await itemRes.json() : []
     const stationList = stationRes.ok ? await stationRes.json() : []
     setCategories(Array.isArray(cats) ? cats : [])
-    setItems(Array.isArray(menuItems) ? menuItems : [])
+    setItems((Array.isArray(menuItems) ? menuItems : []).filter((i: MenuItem) => !i.is_archived))
     setStations(Array.isArray(stationList) ? stationList : [])
     setLoading(false)
   }

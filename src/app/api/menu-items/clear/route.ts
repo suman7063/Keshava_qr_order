@@ -40,9 +40,10 @@ export async function POST(request: Request) {
   }
 
   if (kept.length > 0) {
+    // Can't hard-delete order-referenced items — archive them instead
     await ctx.db
       .from('menu_items')
-      .update({ is_available: false })
+      .update({ is_archived: true, is_available: false })
       .in('id', kept)
       .eq('restaurant_id', ctx.restaurantId)
   }
