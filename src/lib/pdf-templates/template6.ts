@@ -16,16 +16,6 @@ export function getPdf6HTML(categories: MenuCategory[], items: MenuItem[], resta
     cat, items: items.filter(i => i.category_id === cat.id),
   })).filter(g => g.items.length > 0)
 
-  // Balance the two columns by item count, not category count
-  const totalRows = grouped.reduce((s, g) => s + g.items.length + 2, 0)
-  const left: typeof grouped = []
-  const right: typeof grouped = []
-  let used = 0
-  for (const g of grouped) {
-    if (used < totalRows / 2) { left.push(g); used += g.items.length + 2 }
-    else right.push(g)
-  }
-
   const itemRow = (item: MenuItem) => `
     <div class="item ${item.is_available ? '' : 'unavailable'}">
       <span class="name">${item.name}${item.is_vegetarian ? ' <span class="veg">●</span>' : ''}</span>
@@ -66,14 +56,18 @@ export function getPdf6HTML(categories: MenuCategory[], items: MenuItem[], resta
     .title{font-family:Georgia,'Times New Roman',serif;font-size:34px;font-weight:800;color:${brown};letter-spacing:0.5px;}
     .tagline{font-size:11px;color:${brown}99;}
     .tagline b{color:${accent};font-weight:400;}
-    .columns{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;}
-    .category{margin-bottom:22px;break-inside:avoid;}
+    /* Multi-column flow: content fills column 1 then column 2 on every
+       page — a manual grid split leaves giant gaps when a big category
+       can't fit on one page. */
+    .columns{column-count:2;column-gap:40px;}
+    .category{margin-bottom:22px;}
     .cat-bar{background:${brown};color:#fdf6e9;font-size:14px;font-weight:800;text-transform:uppercase;
-      letter-spacing:2px;padding:9px 16px;border-radius:8px;margin-bottom:6px;}
+      letter-spacing:2px;padding:9px 16px;border-radius:8px;margin-bottom:6px;
+      break-inside:avoid;break-after:avoid;}
     .subcat{color:${accent};font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;
-      margin:14px 4px 3px;}
+      margin:14px 4px 3px;break-after:avoid;}
     .item{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6.5px 4px;
-      border-bottom:1px solid ${brown}1f;}
+      border-bottom:1px solid ${brown}1f;break-inside:avoid;}
     .item:last-child{border-bottom:none;}
     .name{font-size:12.5px;font-weight:700;color:${brown};}
     .veg{color:#3f9e3f;font-size:9px;}
@@ -89,10 +83,7 @@ export function getPdf6HTML(categories: MenuCategory[], items: MenuItem[], resta
       <div class="title">${restaurantName} — Price List</div>
       <div class="tagline">Authentic Flavors <b>•</b> Fresh Ingredients <b>•</b> Made with Love</div>
     </div>
-    <div class="columns">
-      <div>${renderGroup(left)}</div>
-      <div>${renderGroup(right)}</div>
-    </div>
+    <div class="columns">${renderGroup(grouped)}</div>
     <div class="footer">${restaurantName} · Authentic Flavors <b>·</b> Fresh Ingredients <b>·</b> Made with Love — All prices inclusive of taxes</div>
   </body></html>`
 }
