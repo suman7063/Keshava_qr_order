@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Order } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
-import { ArrowLeft, CheckCircle, XCircle, DollarSign, ClipboardList, Info } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, DollarSign, ClipboardList, Info, ChevronDown } from 'lucide-react'
 
 interface Manager {
   user_id: string
@@ -36,6 +36,7 @@ export default function ManagerActivityPage() {
   const [sessions, setSessions] = useState<ClosedSession[]>([])
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<'today' | '7d' | '30d' | 'all'>('today')
+  const [openSession, setOpenSession] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -76,6 +77,30 @@ export default function ManagerActivityPage() {
     { label: 'Rejected', value: rejected.length, icon: XCircle, color: 'bg-red-500' },
     { label: 'Tables closed', value: closedCount, icon: ClipboardList, color: 'bg-purple-500' },
   ]
+
+  // One row per table session: first customer up front, everyone inside.
+  const sessionGroups = (() => {
+    const bySession = new Map<string, Order[]>()
+    for (const o of periodOrders) {
+      const key = o.session_id || o.id
+      bySession.set(key, [...(bySession.get(key) || []), o])
+    }
+    return [...bySession.entries()]
+      .map(([key, list]) => {
+        const inOrder = [...list].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        return {
+          key,
+          orders: inOrder,
+          table: inOrder[0].table?.table_number,
+          firstCustomer: inOrder[0].session?.customer_name || inOrder[0].customer_name || 'Customer',
+          customers: [...new Set(inOrder.map(o => o.customer_name).filter(Boolean))],
+          items: inOrder.reduce((s, o) => s + (o.items?.length || 0), 0),
+          total: inOrder.filter(o => o.status !== 'cancelled').reduce((s, o) => s + o.total_amount, 0),
+          start: inOrder[0].created_at,
+        }
+      })
+      .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+  })()
 
   if (loading) return <p className="text-gray-400">Loading…</p>
 
@@ -126,13 +151,13 @@ export default function ManagerActivityPage() {
         ))}
       </div>
 
-      {/* Recent handled orders */}
+      {/* Sessions handled — one row per table session; click to see everyone in it */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-gray-100">
-          <h2 className="font-bold text-gray-900">Orders handled by {manager?.name || 'this manager'}</h2>
-          <p className="text-gray-400 text-xs mt-0.5">Most recent first — status shows where they took it</p>
+          <h2 className="font-bold text-gray-900">Sessions handled by {manager?.name || 'this manager'}</h2>
+          <p className="text-gray-400 text-xs mt-0.5">One row per table session — click a row to see every customer&apos;s order in it</p>
         </div>
-        {periodOrders.length === 0 ? (
+        {sessionGroups.length === 0 ? (
           <div className="p-10 text-center">
             <p className="text-gray-400 font-medium">
               {orders.length === 0 ? 'Nothing recorded yet' : 'No activity in this period'}
@@ -144,30 +169,52 @@ export default function ManagerActivityPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto scrollbar-none">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  {['Table', 'Customer', 'Items', 'Amount', 'Status', 'Placed at'].map(h => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {periodOrders.slice(0, 50).map(o => (
-                  <tr key={o.id} className="hover:bg-gray-50/50">
-                    <td className="px-5 py-3.5 font-semibold text-gray-900 whitespace-nowrap">Table {o.table?.table_number}</td>
-                    <td className="px-5 py-3.5 text-gray-600 whitespace-nowrap">{o.customer_name || '—'}</td>
-                    <td className="px-5 py-3.5 text-gray-500">{o.items?.length || 0}</td>
-                    <td className="px-5 py-3.5 font-semibold text-orange-600 whitespace-nowrap">{formatCurrency(o.total_amount)}</td>
-                    <td className="px-5 py-3.5 whitespace-nowrap">
-                      <Badge variant={STATUS_VARIANT[o.status] || 'default'} className="capitalize text-xs">{o.status}</Badge>
-                    </td>
-                    <td className="px-5 py-3.5 text-gray-400 text-xs whitespace-nowrap">{formatDate(o.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="divide-y divide-gray-50">
+            {sessionGroups.slice(0, 30).map(g => {
+              const open = openSession === g.key
+              return (
+                <div key={g.key}>
+                  {/* Session row */}
+                  <button onClick={() => setOpenSession(open ? null : g.key)}
+                    className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-gray-50/60 transition-colors cursor-pointer">
+                    <div className="min-w-24">
+                      <p className="font-semibold text-gray-900 text-sm whitespace-nowrap">Table {g.table}</p>
+                      <p className="text-[11px] text-gray-400 whitespace-nowrap">{formatDate(g.start)}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-700 truncate">
+                        {g.firstCustomer}
+                        {g.customers.length > 1 && (
+                          <span className="text-xs text-gray-400"> +{g.customers.length - 1} more</span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-gray-400">{g.orders.length} order{g.orders.length === 1 ? '' : 's'} · {g.items} item{g.items === 1 ? '' : 's'}</p>
+                    </div>
+                    <span className="font-semibold text-orange-600 whitespace-nowrap">{formatCurrency(g.total)}</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-300 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Everyone in this session */}
+                  {open && (
+                    <div className="bg-gray-50/70 px-5 pb-4 pt-1 space-y-2">
+                      {g.orders.map(o => (
+                        <div key={o.id} className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 px-4 py-2.5">
+                          <div className="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-xs shrink-0">
+                            {o.customer_name?.[0]?.toUpperCase() || '?'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{o.customer_name || 'Customer'}</p>
+                            <p className="text-[11px] text-gray-400">{o.items?.length || 0} item{(o.items?.length || 0) === 1 ? '' : 's'} · placed {formatDate(o.created_at)}</p>
+                          </div>
+                          <Badge variant={STATUS_VARIANT[o.status] || 'default'} className="capitalize text-xs">{o.status}</Badge>
+                          <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">{formatCurrency(o.total_amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
