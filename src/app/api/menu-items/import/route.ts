@@ -55,14 +55,55 @@ export async function POST(request: Request) {
     })
   }
 
-  // Existing categories (create the missing ones)
+  // Everything below is checked BEFORE any write — a rejected import must
+  // leave the menu completely untouched (no half-created categories).
   const { data: cats } = await ctx.db
     .from('menu_categories')
     .select('id, name')
     .eq('restaurant_id', ctx.restaurantId)
   const catByLower = new Map((cats || []).map(c => [c.name.toLowerCase(), c.id as string]))
 
-  const missing = [...new Set(rows.map(r => r.category).filter(c => !catByLower.has(c.toLowerCase())))]
+  // Skip duplicates: same item name (case-insensitive) in the same category —
+  // keyed by category name for rows whose category doesn't exist yet.
+  const { data: existingItems } = await ctx.db
+    .from('menu_items')
+    .select('name, category_id')
+    .eq('restaurant_id', ctx.restaurantId)
+  const existingKeys = new Set((existingItems || []).map(i => `${i.category_id}:${(i.name as string).toLowerCase()}`))
+
+  const seen = new Set<string>()
+  const toInsert: typeof rows = []
+  let skipped = 0
+  for (const r of rows) {
+    const catLower = r.category.toLowerCase()
+    const catId = catByLower.get(catLower)
+    const key = catId ? `${catId}:${r.name.toLowerCase()}` : `new:${catLower}:${r.name.toLowerCase()}`
+    if ((catId && existingKeys.has(key)) || seen.has(key)) { skipped++; continue }
+    seen.add(key)
+    toInsert.push(r)
+  }
+
+  if (toInsert.length === 0) {
+    return NextResponse.json({ items_created: 0, categories_created: 0, skipped })
+  }
+
+  // Plan limit — fail before creating anything
+  const { data: restaurant } = await ctx.db
+    .from('restaurants')
+    .select('plan, trial_ends_at')
+    .eq('id', ctx.restaurantId)
+    .single()
+  const plan = effectivePlan(restaurant ?? { plan: 'free', trial_ends_at: null })
+  const existingCount = existingItems?.length || 0
+  if (existingCount + toInsert.length > plan.maxMenuItems) {
+    return NextResponse.json(
+      { error: `Your ${plan.label} plan allows up to ${plan.maxMenuItems} menu items — you have ${existingCount} and the CSV adds ${toInsert.length} more. Upgrade or trim the CSV.` },
+      { status: 403 }
+    )
+  }
+
+  // Passed all checks — now create the missing categories
+  const missing = [...new Set(toInsert.map(r => r.category).filter(c => !catByLower.has(c.toLowerCase())))]
   let categoriesCreated = 0
   if (missing.length > 0) {
     const { data: created, error: catError } = await ctx.db
@@ -76,42 +117,6 @@ export async function POST(request: Request) {
     if (catError) return NextResponse.json({ error: catError.message }, { status: 500 })
     for (const c of created || []) catByLower.set((c.name as string).toLowerCase(), c.id as string)
     categoriesCreated = created?.length || 0
-  }
-
-  // Skip duplicates: same item name (case-insensitive) in the same category
-  const { data: existingItems } = await ctx.db
-    .from('menu_items')
-    .select('name, category_id')
-    .eq('restaurant_id', ctx.restaurantId)
-  const existingKeys = new Set((existingItems || []).map(i => `${i.category_id}:${(i.name as string).toLowerCase()}`))
-
-  const toInsert: typeof rows = []
-  let skipped = 0
-  for (const r of rows) {
-    const categoryId = catByLower.get(r.category.toLowerCase())!
-    const key = `${categoryId}:${r.name.toLowerCase()}`
-    if (existingKeys.has(key)) { skipped++; continue }
-    existingKeys.add(key) // also dedupes repeats inside the CSV itself
-    toInsert.push(r)
-  }
-
-  if (toInsert.length === 0) {
-    return NextResponse.json({ items_created: 0, categories_created: categoriesCreated, skipped })
-  }
-
-  // Plan limit
-  const { data: restaurant } = await ctx.db
-    .from('restaurants')
-    .select('plan, trial_ends_at')
-    .eq('id', ctx.restaurantId)
-    .single()
-  const plan = effectivePlan(restaurant ?? { plan: 'free', trial_ends_at: null })
-  const existingCount = existingItems?.length || 0
-  if (existingCount + toInsert.length > plan.maxMenuItems) {
-    return NextResponse.json(
-      { error: `Your ${plan.label} plan allows up to ${plan.maxMenuItems} menu items — you have ${existingCount} and the CSV adds ${toInsert.length} more. Upgrade or trim the CSV.` },
-      { status: 403 }
-    )
   }
 
   const { data: inserted, error } = await ctx.db
