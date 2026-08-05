@@ -318,9 +318,13 @@ export default function TablePage() {
     checkSession()
 
     // Session data is staff-only at the DB layer now, so realtime is not
-    // available to anonymous customers — poll the API instead.
-    const poll = setInterval(checkSession, 15000)
-    return () => clearInterval(poll)
+    // available to anonymous customers — poll the API instead. Browsers
+    // throttle timers when the phone screen is off / app is backgrounded,
+    // so also refresh the moment the customer comes back.
+    const poll = setInterval(checkSession, 8000)
+    const onVisible = () => { if (document.visibilityState === 'visible') checkSession() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { clearInterval(poll); document.removeEventListener('visibilitychange', onVisible) }
   }, [tableId, restaurantId])
 
   const filteredItems = activeCategory
