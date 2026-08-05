@@ -24,6 +24,15 @@ function LoginForm() {
   const [error, setError] = useState('')
   const [needsVerify, setNeedsVerify] = useState(false)
   const [resendMsg, setResendMsg] = useState('')
+  // Same account system for both — the tabs are visual clarity only;
+  // after login everyone is routed by their real role.
+  const [role, setRole] = useState<'owner' | 'manager'>(
+    searchParams.get('role') === 'manager' ? 'manager' : 'owner'
+  )
+
+  const theme = role === 'manager'
+    ? { icon: 'bg-slate-800', btn: 'bg-slate-800 hover:bg-slate-900', ring: 'focus:ring-slate-600', border: 'border-t-slate-800' }
+    : { icon: 'bg-orange-500', btn: 'bg-orange-500 hover:bg-orange-600', ring: 'focus:ring-orange-400', border: 'border-t-orange-500' }
 
   // Already logged in? Send them to the right place.
   useEffect(() => {
@@ -73,13 +82,27 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-xl w-full max-w-sm p-8">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-blue-800 rounded-xl flex items-center justify-center mx-auto mb-4">
+      <div className={`bg-white rounded-2xl border border-gray-100 border-t-4 ${theme.border} shadow-xl w-full max-w-sm p-8 transition-colors`}>
+        <div className="text-center mb-5">
+          <div className={`w-12 h-12 ${theme.icon} rounded-xl flex items-center justify-center mx-auto mb-4 transition-colors`}>
             <QrCode className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Log in to bicres</h1>
-          <p className="text-gray-400 text-sm mt-1">Owners, managers &amp; admins — one login</p>
+          <h1 className="text-2xl font-bold text-gray-900">{role === 'manager' ? 'Manager Login' : 'Owner Login'}</h1>
+          <p className="text-gray-400 text-sm mt-1">
+            {role === 'manager' ? 'Orders, kitchen & bill requests' : 'Manage your restaurant on bicres'}
+          </p>
+        </div>
+
+        {/* Who's logging in? */}
+        <div className="flex rounded-xl border border-gray-200 overflow-hidden mb-6">
+          <button type="button" onClick={() => setRole('owner')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${role === 'owner' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+            🏪 Owner
+          </button>
+          <button type="button" onClick={() => setRole('manager')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${role === 'manager' ? 'bg-slate-800 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+            👨‍🍳 Manager
+          </button>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -89,7 +112,7 @@ function LoginForm() {
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
                 placeholder="you@restaurant.com"
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent" />
+                className={`w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${theme.ring} focus:border-transparent`} />
             </div>
           </div>
           <div>
@@ -98,7 +121,7 @@ function LoginForm() {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input type={showPw ? 'text' : 'password'} required value={password} onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent" />
+                className={`w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${theme.ring} focus:border-transparent`} />
               <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                 {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -118,21 +141,24 @@ function LoginForm() {
           )}
           {resendMsg && <p className={`text-sm text-center ${resendMsg.includes('sent') ? 'text-green-600' : 'text-red-500'}`}>{resendMsg}</p>}
 
-          <Button type="submit" size="lg" className="w-full bg-blue-800 hover:bg-blue-900" loading={loading}>
-            Log in
+          <Button type="submit" size="lg" className={`w-full ${theme.btn}`} loading={loading}>
+            {role === 'manager' ? 'Log in as Manager' : 'Log in as Owner'}
           </Button>
         </form>
 
         <p className="text-center mt-4 text-sm">
           <Link href="/admin/forgot-password" className="text-gray-400 hover:text-blue-700 hover:underline">Forgot password?</Link>
         </p>
-        <p className="text-center mt-3 text-sm text-gray-400">
-          Restaurant owner?{' '}
-          <Link href="/onboard" className="text-blue-800 font-semibold hover:underline">Create your restaurant</Link>
-        </p>
-        <p className="text-center mt-2 text-xs text-gray-300">
-          Manager accounts are created by your restaurant owner.
-        </p>
+        {role === 'owner' ? (
+          <p className="text-center mt-3 text-sm text-gray-400">
+            New here?{' '}
+            <Link href="/onboard" className="text-orange-600 font-semibold hover:underline">Create your restaurant</Link>
+          </p>
+        ) : (
+          <p className="text-center mt-3 text-xs text-gray-400">
+            Manager accounts are created by your restaurant owner — ask them for your login.
+          </p>
+        )}
       </div>
     </div>
   )
