@@ -47,6 +47,10 @@ export default function MenuPage() {
   const [importErrors, setImportErrors] = useState<string[]>([])
   const [importFileName, setImportFileName] = useState('')
   const [importing, setImporting] = useState(false)
+  // Every owner's sheet is different — keep the raw grid and a column
+  // mapping (auto-guessed, user-correctable) instead of fixed positions.
+  const [csvGrid, setCsvGrid] = useState<string[][]>([])
+  const [csvMapping, setCsvMapping] = useState({ cat: -1, name: -1, price: -1, veg: -1, desc: -1 })
   const [form, setForm] = useState({
     name: '', description: '', price: '', category_id: '', station_id: '',
     is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '',
@@ -215,6 +219,51 @@ export default function MenuPage() {
     URL.revokeObjectURL(url)
   }
 
+  function guessMapping(header: string[]) {
+    const used = new Set<number>()
+    const find = (words: string[]) => {
+      const i = header.findIndex((h, idx) => !used.has(idx) && words.some(w => h.includes(w)))
+      if (i !== -1) used.add(i)
+      return i
+    }
+    return {
+      cat: find(['categ', 'section', 'group', 'श्रेणी']),
+      name: find(['item', 'dish', 'name', 'product', 'title', 'नाम']),
+      price: find(['price', 'rate', 'mrp', 'amount', 'cost', '₹', 'कीमत']),
+      veg: find(['veg', 'diet', 'type']),
+      desc: find(['desc', 'detail', 'about']),
+    }
+  }
+
+  function buildImportRows(grid: string[][], m: typeof csvMapping) {
+    const rows: typeof importRows = []
+    const errors: string[] = []
+    if (m.cat === -1 || m.name === -1 || m.price === -1) {
+      return { rows, errors: ['Select which columns are Category, Item Name and Price below.'] }
+    }
+    grid.slice(1).forEach((r, i) => {
+      const category = (r[m.cat] || '').trim()
+      const name = (r[m.name] || '').trim()
+      const price = Number((r[m.price] || '').replace(/[₹,\s]/g, ''))
+      if (!category || !name) { errors.push(`Row ${i + 2}: category and item name are required`); return }
+      if (Number.isNaN(price) || price < 0) { errors.push(`Row ${i + 2} (${name}): invalid price "${r[m.price]}"`); return }
+      const vegRaw = m.veg === -1 ? '' : (r[m.veg] || '').trim().toLowerCase()
+      rows.push({
+        category, name, price,
+        is_vegetarian: !['no', 'n', 'non-veg', 'nonveg', 'non veg', 'false', '0', 'non'].includes(vegRaw),
+        description: m.desc === -1 ? undefined : (r[m.desc] || '').trim() || undefined,
+      })
+    })
+    return { rows, errors }
+  }
+
+  function applyMapping(m: typeof csvMapping) {
+    setCsvMapping(m)
+    const { rows, errors } = buildImportRows(csvGrid, m)
+    setImportRows(rows)
+    setImportErrors(errors)
+  }
+
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -222,33 +271,13 @@ export default function MenuPage() {
     setImportFileName(file.name)
     const grid = parseCSV(await file.text())
     if (grid.length < 2) {
-      setImportRows([]); setImportErrors(['File is empty — needs a header row plus at least one item.'])
+      setCsvGrid([]); setImportRows([]); setImportErrors(['File is empty — needs a header row plus at least one item.'])
       return
     }
-    const header = grid[0].map(h => h.trim().toLowerCase())
-    const col = (want: string[]) => header.findIndex(h => want.some(w => h.includes(w)))
-    const cCat = col(['categ']), cName = col(['item', 'name']), cPrice = col(['price'])
-    const cVeg = col(['veg']), cDesc = col(['desc'])
-    if (cCat === -1 || cName === -1 || cPrice === -1) {
-      setImportRows([])
-      setImportErrors(['Header must include Category, Item Name and Price columns. Download the sample CSV to see the format.'])
-      return
-    }
-    const rows: typeof importRows = []
-    const errors: string[] = []
-    grid.slice(1).forEach((r, i) => {
-      const category = (r[cCat] || '').trim()
-      const name = (r[cName] || '').trim()
-      const price = Number((r[cPrice] || '').replace(/[₹,\s]/g, ''))
-      if (!category || !name) { errors.push(`Row ${i + 2}: category and item name are required`); return }
-      if (Number.isNaN(price) || price < 0) { errors.push(`Row ${i + 2} (${name}): invalid price "${r[cPrice]}"`); return }
-      const vegRaw = cVeg === -1 ? '' : (r[cVeg] || '').trim().toLowerCase()
-      rows.push({
-        category, name, price,
-        is_vegetarian: !['no', 'n', 'non-veg', 'nonveg', 'non veg', 'false', '0'].includes(vegRaw),
-        description: cDesc === -1 ? undefined : (r[cDesc] || '').trim() || undefined,
-      })
-    })
+    const m = guessMapping(grid[0].map(h => h.trim().toLowerCase()))
+    setCsvGrid(grid)
+    setCsvMapping(m)
+    const { rows, errors } = buildImportRows(grid, m)
     setImportRows(rows)
     setImportErrors(errors)
   }
@@ -416,7 +445,7 @@ export default function MenuPage() {
             <ChefHat className="w-4 h-4" /> Kitchens
           </button>
           {/* Import CSV */}
-          <button onClick={() => { setShowImportModal(true); setImportRows([]); setImportErrors([]); setImportFileName('') }}
+          <button onClick={() => { setShowImportModal(true); setImportRows([]); setImportErrors([]); setImportFileName(''); setCsvGrid([]); setCsvMapping({ cat: -1, name: -1, price: -1, veg: -1, desc: -1 }) }}
             className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
             <Upload className="w-4 h-4" /> Import
           </button>
@@ -913,6 +942,27 @@ export default function MenuPage() {
             <span className="text-xs text-gray-400">.csv — up to 500 items</span>
             <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportFile} />
           </label>
+
+          {/* Every sheet is different — map their columns to our fields */}
+          {csvGrid.length > 1 && (
+            <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2.5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Match your columns</p>
+              <p className="text-xs text-gray-400">Auto-guessed from your file — fix any that look wrong.</p>
+              {([['cat', 'Category *'], ['name', 'Item Name *'], ['price', 'Price *'], ['veg', 'Veg (yes/no)'], ['desc', 'Description']] as const).map(([key, label]) => (
+                <div key={key} className="flex items-center gap-3">
+                  <span className="w-32 text-sm text-gray-600 shrink-0">{label}</span>
+                  <select value={csvMapping[key]}
+                    onChange={e => applyMapping({ ...csvMapping, [key]: Number(e.target.value) })}
+                    className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <option value={-1}>— not in my file —</option>
+                    {csvGrid[0].map((h, i) => (
+                      <option key={i} value={i}>{h.trim() || `Column ${i + 1}`}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
 
           {(importRows.length > 0 || importErrors.length > 0) && (
             <div className="bg-gray-50 rounded-xl p-4 space-y-2">
