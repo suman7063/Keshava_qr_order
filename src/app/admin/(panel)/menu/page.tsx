@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Download, ChefHat, Upload, FileSpreadsheet } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download, ChefHat, Upload, FileSpreadsheet, Maximize2, X } from 'lucide-react'
 import Link from 'next/link'
 import { parseCSV } from '@/lib/csv'
 import { VegMark } from '@/components/ui/VegMark'
@@ -30,6 +30,7 @@ export default function MenuPage() {
   const [pdfTextColor, setPdfTextColor] = useState('')
   const [pdfSubTextColor, setPdfSubTextColor] = useState('')
   const [pdfHeroImage, setPdfHeroImage] = useState('')
+  const [showFullPreview, setShowFullPreview] = useState(false)
   const [restaurantName, setRestaurantName] = useState('Our Restaurant')
   const [stations, setStations] = useState<KitchenStation[]>([])
   const [showImportModal, setShowImportModal] = useState(false)
@@ -347,6 +348,17 @@ export default function MenuPage() {
     .slice(0, 3)
   const pdfPreviewItems = pdfPreviewCats
     .flatMap(c => items.filter(i => i.is_available && i.category_id === c.id).slice(0, 4))
+
+  // The real thing: full menu in the selected template + colours — used by
+  // the inline preview and the expanded preview modal, and it IS the download.
+  const fullPdfHtml = pdfLib
+    ? pdfLib.getPdfHTML(pdfTemplateId, categories, items.filter(i => i.is_available), restaurantName, {
+        bgColor: pdfBgColor || undefined,
+        textColor: pdfTextColor || undefined,
+        subTextColor: pdfSubTextColor || undefined,
+        heroImage: pdfHeroImage || undefined,
+      })
+    : ''
 
   return (
     <div>
@@ -845,17 +857,18 @@ export default function MenuPage() {
 
           {/* Full live preview — the owner sees the real thing before downloading */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Preview — your full menu ({items.filter(i => i.is_available).length} items)
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Preview — your full menu ({items.filter(i => i.is_available).length} items)
+              </p>
+              <button onClick={() => setShowFullPreview(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700">
+                <Maximize2 className="w-3.5 h-3.5" /> Expand preview
+              </button>
+            </div>
             <iframe
               title="Full menu preview"
-              srcDoc={pdfLib ? pdfLib.getPdfHTML(pdfTemplateId, categories, items.filter(i => i.is_available), restaurantName, {
-                bgColor: pdfBgColor || undefined,
-                textColor: pdfTextColor || undefined,
-                subTextColor: pdfSubTextColor || undefined,
-                heroImage: pdfHeroImage || undefined,
-              }) : ''}
+              srcDoc={fullPdfHtml}
               className="w-full h-110 border border-gray-200 rounded-xl bg-white"
             />
             <p className="text-[11px] text-gray-400 mt-1">Scroll inside the preview — this is exactly what downloads.</p>
@@ -869,6 +882,32 @@ export default function MenuPage() {
           </div>
         </div>
       </Modal>
+      {/* Expanded full-screen menu preview */}
+      {showFullPreview && (
+        <div className="fixed inset-0 z-60 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setShowFullPreview(false)}>
+          <div className="relative bg-white rounded-2xl w-full max-w-4xl h-[92vh] flex flex-col overflow-hidden shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+              <p className="font-semibold text-gray-900">
+                Menu preview — {pdfLib?.PDF_TEMPLATES.find(t => t.id === pdfTemplateId)?.label}
+              </p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setShowFullPreview(false); exportPDF() }}
+                  className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors">
+                  <Download className="w-4 h-4" /> Download PDF
+                </button>
+                <button onClick={() => setShowFullPreview(false)}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+            <iframe title="Expanded menu preview" srcDoc={fullPdfHtml} className="w-full flex-1 bg-white" />
+          </div>
+        </div>
+      )}
+
       {cropModal}
     </div>
   )
