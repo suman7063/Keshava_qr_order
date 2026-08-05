@@ -341,6 +341,14 @@ export default function MenuPage() {
 
   const filteredItems = activeCategory ? items.filter(i => i.category_id === activeCategory) : items
 
+  // PDF thumbnails: preview only categories that actually have available
+  // items, a few items each — empty first-categories used to blank them out.
+  const pdfPreviewCats = categories
+    .filter(c => items.some(i => i.is_available && i.category_id === c.id))
+    .slice(0, 3)
+  const pdfPreviewItems = pdfPreviewCats
+    .flatMap(c => items.filter(i => i.is_available && i.category_id === c.id).slice(0, 4))
+
   return (
     <div>
       {toast && <Toast message={toast} onDismiss={dismissToast} />}
@@ -753,8 +761,8 @@ export default function MenuPage() {
               const isSelected = pdfTemplateId === t.id
               const previewHtml = pdfLib!.getPdfHTML(
                 t.id,
-                categories.slice(0, 3),
-                items.filter(i => i.is_available).slice(0, 6),
+                pdfPreviewCats,
+                pdfPreviewItems,
                 restaurantName,
                 isSelected ? {
                   bgColor: pdfBgColor || undefined,
