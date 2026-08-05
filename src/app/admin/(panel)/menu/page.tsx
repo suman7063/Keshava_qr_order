@@ -51,6 +51,9 @@ export default function MenuPage() {
   // mapping (auto-guessed, user-correctable) instead of fixed positions.
   const [csvGrid, setCsvGrid] = useState<string[][]>([])
   const [csvMapping, setCsvMapping] = useState({ cat: -1, name: -1, price: -1, veg: -1, desc: -1 })
+  // Owners are told to use OUR format; manual mapping appears only as a
+  // rescue when their file doesn't match it.
+  const [mappingNeeded, setMappingNeeded] = useState(false)
   const [form, setForm] = useState({
     name: '', description: '', price: '', category_id: '', station_id: '',
     is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '',
@@ -277,6 +280,7 @@ export default function MenuPage() {
     const m = guessMapping(grid[0].map(h => h.trim().toLowerCase()))
     setCsvGrid(grid)
     setCsvMapping(m)
+    setMappingNeeded(m.cat === -1 || m.name === -1 || m.price === -1)
     const { rows, errors } = buildImportRows(grid, m)
     setImportRows(rows)
     setImportErrors(errors)
@@ -445,7 +449,7 @@ export default function MenuPage() {
             <ChefHat className="w-4 h-4" /> Kitchens
           </button>
           {/* Import CSV */}
-          <button onClick={() => { setShowImportModal(true); setImportRows([]); setImportErrors([]); setImportFileName(''); setCsvGrid([]); setCsvMapping({ cat: -1, name: -1, price: -1, veg: -1, desc: -1 }) }}
+          <button onClick={() => { setShowImportModal(true); setImportRows([]); setImportErrors([]); setImportFileName(''); setCsvGrid([]); setCsvMapping({ cat: -1, name: -1, price: -1, veg: -1, desc: -1 }); setMappingNeeded(false) }}
             className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
             <Upload className="w-4 h-4" /> Import
           </button>
@@ -925,16 +929,21 @@ export default function MenuPage() {
       {/* Import CSV Modal */}
       <Modal isOpen={showImportModal} onClose={() => setShowImportModal(false)} title="Import Menu from CSV">
         <div className="space-y-4">
-          <p className="text-sm text-gray-500">
-            Fill a CSV with <span className="font-semibold text-gray-700">Category, Item Name, Price</span> (required)
-            and <span className="font-semibold text-gray-700">Veg</span> (yes/no), <span className="font-semibold text-gray-700">Description</span> (optional).
-            No image column — photos can be added later by editing items. New categories are created automatically.
-          </p>
-
-          <button onClick={downloadSampleCSV}
-            className="flex items-center gap-1.5 text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline">
-            <Download className="w-4 h-4" /> Download sample CSV
-          </button>
+          {/* The format contract — owners fill THIS, not their own layout */}
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+            <p className="text-xs font-bold text-orange-700 uppercase tracking-wide mb-1.5">Use exactly this format</p>
+            <code className="block bg-white border border-orange-100 rounded-lg px-3 py-2 text-xs text-gray-800 overflow-x-auto whitespace-nowrap">
+              Category, Item Name, Price, Veg, Description
+            </code>
+            <p className="text-xs text-orange-700/80 mt-2">
+              First 3 are required · Veg = yes/no · no image column — photos are added later by editing items.
+              New categories are created automatically.
+            </p>
+            <button onClick={downloadSampleCSV}
+              className="mt-2.5 flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline">
+              <Download className="w-4 h-4" /> Download sample CSV — fill your menu in it
+            </button>
+          </div>
 
           <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-2xl py-8 cursor-pointer hover:border-orange-400 transition-colors">
             <FileSpreadsheet className="w-8 h-8 text-gray-300" />
@@ -943,11 +952,11 @@ export default function MenuPage() {
             <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportFile} />
           </label>
 
-          {/* Every sheet is different — map their columns to our fields */}
-          {csvGrid.length > 1 && (
-            <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2.5">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Match your columns</p>
-              <p className="text-xs text-gray-400">Auto-guessed from your file — fix any that look wrong.</p>
+          {/* Rescue path: only appears when the file doesn't follow our format */}
+          {csvGrid.length > 1 && mappingNeeded && (
+            <div className="bg-white border border-amber-300 rounded-xl p-4 space-y-2.5">
+              <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">⚠️ File doesn&apos;t match our format</p>
+              <p className="text-xs text-gray-400">Either refill the sample CSV, or match your columns manually below.</p>
               {([['cat', 'Category *'], ['name', 'Item Name *'], ['price', 'Price *'], ['veg', 'Veg (yes/no)'], ['desc', 'Description']] as const).map(([key, label]) => (
                 <div key={key} className="flex items-center gap-3">
                   <span className="w-32 text-sm text-gray-600 shrink-0">{label}</span>
