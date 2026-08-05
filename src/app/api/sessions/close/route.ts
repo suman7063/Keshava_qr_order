@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   const { error: sessionError } = await ctx.db
     .from('table_sessions')
-    .update({ status: 'closed', ended_at: new Date().toISOString() })
+    .update({ status: 'closed', ended_at: new Date().toISOString(), closed_by: ctx.user.id })
     .eq('id', session_id)
 
   if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 })

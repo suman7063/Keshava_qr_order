@@ -53,6 +53,8 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
 
   if (status) query = query.eq('status', status)
+  const handledBy = searchParams.get('handled_by')
+  if (handledBy) query = query.eq('handled_by', handledBy)
   if (today === 'true') {
     const start = new Date()
     start.setHours(0, 0, 0, 0)

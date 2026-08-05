@@ -90,7 +90,8 @@ CREATE TABLE IF NOT EXISTS table_sessions (
   bill_requested BOOLEAN      NOT NULL DEFAULT FALSE,
   status         VARCHAR(20)  NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed')),
   started_at     TIMESTAMPTZ  DEFAULT NOW(),
-  ended_at       TIMESTAMPTZ
+  ended_at       TIMESTAMPTZ,
+  closed_by      UUID
 );
 
 -- ── Orders ───────────────────────────────────────────────────────────────────
@@ -101,6 +102,7 @@ CREATE TABLE IF NOT EXISTS orders (
   table_id      UUID          NOT NULL REFERENCES restaurant_tables(id) ON DELETE CASCADE,
   customer_name VARCHAR(200),
   status        VARCHAR(20)   NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'preparing', 'ready', 'served', 'cancelled')),
+  handled_by    UUID,
   total_amount  DECIMAL(10,2) NOT NULL DEFAULT 0,
   notes         TEXT,
   created_at    TIMESTAMPTZ   DEFAULT NOW(),

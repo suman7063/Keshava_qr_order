@@ -43,7 +43,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     const { data, error } = await ctx.db
       .from('orders')
-      .update({ status })
+      .update({ status, handled_by: ctx.user.id })
       .eq('id', id)
       .eq('restaurant_id', ctx.restaurantId)
       .select(ORDER_SELECT)

@@ -14,7 +14,7 @@ const navItems = [
   { href: '/admin/managers', label: 'Managers', icon: Users },
   { href: '/admin/sessions', label: 'Sessions', icon: ClipboardList },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
-  { href: '/manager', label: 'Manager View', icon: BarChart3 },
+  { href: '/admin/manager-view', label: 'Manager View', icon: BarChart3 },
 ]
 
 function SidebarContent({ restaurantName, pathname, onNavigate, onLogout }: {
