@@ -148,7 +148,7 @@ export default function ManagerActivityPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['Table', 'Items', 'Amount', 'Status', 'When'].map(h => (
+                  {['Table', 'Customer', 'Items', 'Amount', 'Status', 'Placed at'].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -157,12 +157,13 @@ export default function ManagerActivityPage() {
                 {periodOrders.slice(0, 50).map(o => (
                   <tr key={o.id} className="hover:bg-gray-50/50">
                     <td className="px-5 py-3.5 font-semibold text-gray-900 whitespace-nowrap">Table {o.table?.table_number}</td>
+                    <td className="px-5 py-3.5 text-gray-600 whitespace-nowrap">{o.customer_name || '—'}</td>
                     <td className="px-5 py-3.5 text-gray-500">{o.items?.length || 0}</td>
                     <td className="px-5 py-3.5 font-semibold text-orange-600 whitespace-nowrap">{formatCurrency(o.total_amount)}</td>
                     <td className="px-5 py-3.5 whitespace-nowrap">
                       <Badge variant={STATUS_VARIANT[o.status] || 'default'} className="capitalize text-xs">{o.status}</Badge>
                     </td>
-                    <td className="px-5 py-3.5 text-gray-400 text-xs whitespace-nowrap">{formatDate(o.updated_at || o.created_at)}</td>
+                    <td className="px-5 py-3.5 text-gray-400 text-xs whitespace-nowrap">{formatDate(o.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
