@@ -6,6 +6,7 @@ const MAX_ROWS = 500
 
 interface ImportRow {
   category?: string
+  subcategory?: string
   name?: string
   price?: number | string
   is_vegetarian?: boolean
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
   }
 
   // Validate + normalise
-  const rows: { category: string; name: string; price: number; is_vegetarian: boolean; description: string | null }[] = []
+  const rows: { category: string; subcategory: string | null; name: string; price: number; is_vegetarian: boolean; description: string | null }[] = []
   for (let i = 0; i < raw.length; i++) {
     const r = raw[i]
     const category = String(r.category ?? '').trim().slice(0, 100)
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
     }
     rows.push({
       category,
+      subcategory: typeof r.subcategory === 'string' && r.subcategory.trim() ? r.subcategory.trim().slice(0, 100) : null,
       name,
       price,
       is_vegetarian: r.is_vegetarian !== false,
@@ -67,24 +69,39 @@ export async function POST(request: Request) {
   // keyed by category name for rows whose category doesn't exist yet.
   const { data: existingItems } = await ctx.db
     .from('menu_items')
-    .select('name, category_id')
+    .select('id, name, category_id, subcategory')
     .eq('restaurant_id', ctx.restaurantId)
-  const existingKeys = new Set((existingItems || []).map(i => `${i.category_id}:${(i.name as string).toLowerCase()}`))
+  const existingByKey = new Map((existingItems || []).map(i => [`${i.category_id}:${(i.name as string).toLowerCase()}`, i]))
 
   const seen = new Set<string>()
   const toInsert: typeof rows = []
+  // Re-importing the same CSV with a (new) Subcategory column backfills
+  // the labels onto already-imported items instead of doing nothing.
+  const subcatUpdates: { id: string; subcategory: string }[] = []
   let skipped = 0
   for (const r of rows) {
     const catLower = r.category.toLowerCase()
     const catId = catByLower.get(catLower)
     const key = catId ? `${catId}:${r.name.toLowerCase()}` : `new:${catLower}:${r.name.toLowerCase()}`
-    if ((catId && existingKeys.has(key)) || seen.has(key)) { skipped++; continue }
+    const existing = catId ? existingByKey.get(key) : undefined
+    if (existing || seen.has(key)) {
+      if (existing && r.subcategory && r.subcategory !== existing.subcategory) {
+        subcatUpdates.push({ id: existing.id as string, subcategory: r.subcategory })
+      }
+      skipped++
+      continue
+    }
     seen.add(key)
     toInsert.push(r)
   }
 
+  for (const u of subcatUpdates) {
+    await ctx.db.from('menu_items').update({ subcategory: u.subcategory })
+      .eq('id', u.id).eq('restaurant_id', ctx.restaurantId)
+  }
+
   if (toInsert.length === 0) {
-    return NextResponse.json({ items_created: 0, categories_created: 0, skipped })
+    return NextResponse.json({ items_created: 0, categories_created: 0, skipped, subcategories_updated: subcatUpdates.length })
   }
 
   // Plan limit — fail before creating anything
@@ -125,6 +142,7 @@ export async function POST(request: Request) {
       restaurant_id: ctx.restaurantId,
       category_id: catByLower.get(r.category.toLowerCase())!,
       name: r.name,
+      subcategory: r.subcategory,
       price: r.price,
       description: r.description,
       is_vegetarian: r.is_vegetarian,
@@ -139,5 +157,6 @@ export async function POST(request: Request) {
     items_created: inserted?.length || 0,
     categories_created: categoriesCreated,
     skipped,
+    subcategories_updated: subcatUpdates.length,
   })
 }

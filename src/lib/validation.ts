@@ -1,6 +1,6 @@
 /** Whitelisted client-updatable columns for menu items. */
 export const ITEM_FIELDS = [
-  'category_id', 'station_id', 'name', 'description', 'price', 'image_url', 'is_available',
+  'category_id', 'station_id', 'name', 'subcategory', 'description', 'price', 'image_url', 'is_available',
   'is_vegetarian', 'is_vegan', 'allergens', 'prep_time_minutes', 'display_order',
 ] as const
 
@@ -22,6 +22,10 @@ export function validateMenuItemFields(obj: Record<string, unknown>): string | n
     }
   }
   if ('name' in obj && typeof obj.name === 'string') obj.name = obj.name.slice(0, 200)
+  if ('subcategory' in obj) {
+    if (obj.subcategory != null && typeof obj.subcategory !== 'string') return 'Invalid subcategory'
+    if (typeof obj.subcategory === 'string') obj.subcategory = obj.subcategory.trim().slice(0, 100) || null
+  }
   if ('description' in obj && typeof obj.description === 'string') obj.description = obj.description.slice(0, 1000)
   if ('station_id' in obj) {
     if (obj.station_id === '') obj.station_id = null

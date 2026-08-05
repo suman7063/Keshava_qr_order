@@ -34,19 +34,19 @@ export default function MenuPage() {
   const [restaurantName, setRestaurantName] = useState('Our Restaurant')
   const [stations, setStations] = useState<KitchenStation[]>([])
   const [showImportModal, setShowImportModal] = useState(false)
-  const [importRows, setImportRows] = useState<{ category: string; name: string; price: number; is_vegetarian: boolean; description?: string }[]>([])
+  const [importRows, setImportRows] = useState<{ category: string; subcategory?: string; name: string; price: number; is_vegetarian: boolean; description?: string }[]>([])
   const [importErrors, setImportErrors] = useState<string[]>([])
   const [importFileName, setImportFileName] = useState('')
   const [importing, setImporting] = useState(false)
   // Every owner's sheet is different — keep the raw grid and a column
   // mapping (auto-guessed, user-correctable) instead of fixed positions.
   const [csvGrid, setCsvGrid] = useState<string[][]>([])
-  const [csvMapping, setCsvMapping] = useState({ cat: -1, name: -1, price: -1, veg: -1, desc: -1 })
+  const [csvMapping, setCsvMapping] = useState({ cat: -1, sub: -1, name: -1, price: -1, veg: -1, desc: -1 })
   // Owners are told to use OUR format; manual mapping appears only as a
   // rescue when their file doesn't match it.
   const [mappingNeeded, setMappingNeeded] = useState(false)
   const [form, setForm] = useState({
-    name: '', description: '', price: '', category_id: '', station_id: '',
+    name: '', subcategory: '', description: '', price: '', category_id: '', station_id: '',
     is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '',
     image_url: '',
   })
@@ -117,13 +117,14 @@ export default function MenuPage() {
 
   function downloadSampleCSV() {
     const sample = [
-      'Category,Item Name,Price,Veg,Description',
-      'South Indian,Masala Dosa,75,yes,Crispy dosa with potato masala',
-      'South Indian,Idly (3),45,yes,',
-      'Chinese,Veg Fried Rice,120,yes,',
-      'Chinese,Paneer Chilly,200,yes,',
-      'Hot Beverages,Filter Coffee,25,yes,',
-      'Snacks,Samosa,25,yes,',
+      'Category,Subcategory,Item Name,Price,Veg,Description',
+      'South Indian,Idly Varieties,Idly (3),45,yes,',
+      'South Indian,Idly Varieties,Rava Idly,60,yes,',
+      'South Indian,Masala Dosa,Masala Dosa,75,yes,Crispy dosa with potato masala',
+      'Chinese,Momos,Steamed Veg Momo,75,yes,',
+      'Chinese,Fried Rice,Veg Fried Rice,120,yes,',
+      'Hot Beverages,Coffee,Filter Coffee,25,yes,',
+      'Snacks,,Samosa,25,yes,',
     ].join('\n')
     const blob = new Blob([sample], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -141,8 +142,11 @@ export default function MenuPage() {
       if (i !== -1) used.add(i)
       return i
     }
+    // sub before cat — "subcategory" also contains "categ"
+    const sub = find(['subcat', 'sub-cat', 'sub cat', 'sub'])
     return {
       cat: find(['categ', 'section', 'group', 'श्रेणी']),
+      sub,
       name: find(['item', 'dish', 'name', 'product', 'title', 'नाम']),
       price: find(['price', 'rate', 'mrp', 'amount', 'cost', '₹', 'कीमत']),
       veg: find(['veg', 'diet', 'type']),
@@ -165,6 +169,7 @@ export default function MenuPage() {
       const vegRaw = m.veg === -1 ? '' : (r[m.veg] || '').trim().toLowerCase()
       rows.push({
         category, name, price,
+        subcategory: m.sub === -1 ? undefined : (r[m.sub] || '').trim() || undefined,
         is_vegetarian: !['no', 'n', 'non-veg', 'nonveg', 'non veg', 'false', '0', 'non'].includes(vegRaw),
         description: m.desc === -1 ? undefined : (r[m.desc] || '').trim() || undefined,
       })
@@ -212,6 +217,7 @@ export default function MenuPage() {
     } else {
       const bits = [`${data.items_created} item${data.items_created === 1 ? '' : 's'} imported`]
       if (data.categories_created) bits.push(`${data.categories_created} new categor${data.categories_created === 1 ? 'y' : 'ies'}`)
+      if (data.subcategories_updated) bits.push(`${data.subcategories_updated} subcategor${data.subcategories_updated === 1 ? 'y' : 'ies'} updated`)
       if (data.skipped) bits.push(`${data.skipped} duplicate${data.skipped === 1 ? '' : 's'} skipped`)
       showToast(bits.join(' · ') + '!')
       setShowImportModal(false)
@@ -278,14 +284,14 @@ export default function MenuPage() {
 
   function openAdd() {
     setEditItem(null)
-    setForm({ name: '', description: '', price: '', category_id: activeCategory || '', station_id: '', is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '', image_url: '' })
+    setForm({ name: '', subcategory: '', description: '', price: '', category_id: activeCategory || '', station_id: '', is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '', image_url: '' })
     setShowModal(true)
   }
 
   function openEdit(item: MenuItem) {
     setEditItem(item)
     setForm({
-      name: item.name, description: item.description || '', price: String(item.price),
+      name: item.name, subcategory: item.subcategory || '', description: item.description || '', price: String(item.price),
       category_id: item.category_id, station_id: item.station_id || '',
       is_vegetarian: item.is_vegetarian, is_vegan: item.is_vegan,
       is_available: item.is_available, prep_time_minutes: String(item.prep_time_minutes || ''),
@@ -370,7 +376,7 @@ export default function MenuPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Import CSV */}
-          <button onClick={() => { setShowImportModal(true); setImportRows([]); setImportErrors([]); setImportFileName(''); setCsvGrid([]); setCsvMapping({ cat: -1, name: -1, price: -1, veg: -1, desc: -1 }); setMappingNeeded(false) }}
+          <button onClick={() => { setShowImportModal(true); setImportRows([]); setImportErrors([]); setImportFileName(''); setCsvGrid([]); setCsvMapping({ cat: -1, sub: -1, name: -1, price: -1, veg: -1, desc: -1 }); setMappingNeeded(false) }}
             className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
             <Upload className="w-4 h-4" /> Import Menu
           </button>
@@ -633,6 +639,17 @@ export default function MenuPage() {
               </select>
             )}
           </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Subcategory <span className="text-gray-400 font-normal">(optional — groups items on the price-list PDF)</span></label>
+            <input
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
+              value={form.subcategory}
+              onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))}
+              placeholder="e.g. Idly Varieties, Momos, Fried Rice"
+              maxLength={100}
+            />
+          </div>
+
           {/* Kitchen override — only when this restaurant uses multiple kitchens */}
           {stations.length > 0 && (
             <div className="col-span-2">
@@ -692,11 +709,12 @@ export default function MenuPage() {
           <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
             <p className="text-xs font-bold text-orange-700 uppercase tracking-wide mb-1.5">Use exactly this format</p>
             <code className="block bg-white border border-orange-100 rounded-lg px-3 py-2 text-xs text-gray-800 overflow-x-auto whitespace-nowrap">
-              Category, Item Name, Price, Veg, Description
+              Category, Subcategory, Item Name, Price, Veg, Description
             </code>
             <p className="text-xs text-orange-700/80 mt-2">
-              First 3 are required · Veg = yes/no · no image column — photos are added later by editing items.
-              New categories are created automatically.
+              Category, Item Name &amp; Price required · Subcategory groups items inside a section on the
+              price-list PDF (e.g. Idly Varieties) · Veg = yes/no · no image column — photos are added
+              later by editing items. New categories are created automatically.
             </p>
             <button onClick={downloadSampleCSV}
               className="mt-2.5 flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline">
@@ -716,7 +734,7 @@ export default function MenuPage() {
             <div className="bg-white border border-amber-300 rounded-xl p-4 space-y-2.5">
               <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">⚠️ File doesn&apos;t match our format</p>
               <p className="text-xs text-gray-400">Either refill the sample CSV, or match your columns manually below.</p>
-              {([['cat', 'Category *'], ['name', 'Item Name *'], ['price', 'Price *'], ['veg', 'Veg (yes/no)'], ['desc', 'Description']] as const).map(([key, label]) => (
+              {([['cat', 'Category *'], ['sub', 'Subcategory'], ['name', 'Item Name *'], ['price', 'Price *'], ['veg', 'Veg (yes/no)'], ['desc', 'Description']] as const).map(([key, label]) => (
                 <div key={key} className="flex items-center gap-3">
                   <span className="w-32 text-sm text-gray-600 shrink-0">{label}</span>
                   <select value={csvMapping[key]}

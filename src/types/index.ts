@@ -63,6 +63,7 @@ export interface MenuItem {
   category_id: string
   station_id?: string | null
   name: string
+  subcategory?: string | null
   description?: string
   price: number
   image_url?: string

@@ -60,11 +60,13 @@ CREATE TABLE IF NOT EXISTS menu_categories (
 );
 
 -- ── Menu Items ───────────────────────────────────────────────────────────────
+-- (menu_items.subcategory: display-only grouping label, added in 015)
 CREATE TABLE IF NOT EXISTS menu_items (
   id                UUID         DEFAULT uuid_generate_v4() PRIMARY KEY,
   restaurant_id     UUID         NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
   category_id       UUID         NOT NULL REFERENCES menu_categories(id) ON DELETE CASCADE,
   name              VARCHAR(200) NOT NULL,
+  subcategory       VARCHAR(100),
   description       TEXT,
   price             DECIMAL(10,2) NOT NULL CHECK (price >= 0),
   image_url         TEXT,
