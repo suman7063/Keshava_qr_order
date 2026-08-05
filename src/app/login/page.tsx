@@ -127,8 +127,11 @@ function LoginForm() {
           <Link href="/admin/forgot-password" className="text-gray-400 hover:text-blue-700 hover:underline">Forgot password?</Link>
         </p>
         <p className="text-center mt-3 text-sm text-gray-400">
-          New restaurant?{' '}
-          <Link href="/onboard" className="text-blue-800 font-semibold hover:underline">Register</Link>
+          Restaurant owner?{' '}
+          <Link href="/onboard" className="text-blue-800 font-semibold hover:underline">Create your restaurant</Link>
+        </p>
+        <p className="text-center mt-2 text-xs text-gray-300">
+          Manager accounts are created by your restaurant owner.
         </p>
       </div>
     </div>
