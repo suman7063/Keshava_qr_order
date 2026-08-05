@@ -289,19 +289,27 @@ export default function TablePage() {
             // the drawer must update without a close-and-reopen.
             if (getSessionCode()) fetchSessionOrders(existing.id)
           } else if (body.session === null) {
-            // Staff closed the table — reset.
-            if (localStorage.getItem(`otp-${tableId}`)) {
-              // This phone was part of the closed session — drop its leftover cart
-              localStorage.removeItem(`cart-${tableId}`)
-              setCart([])
-            }
+            // No active session on this table. Wipe the UI ONLY if this phone
+            // was part of a session that just closed (it holds the join code).
+            // Otherwise — e.g. a customer mid-way through the details form,
+            // no session yet — the poll must never yank the drawer shut.
             setSession(null)
             setBillRequested(false)
-            setSessionOrders([])
-            setDrawer('none')
-            localStorage.removeItem(`otp-${tableId}`)
-            setGeneratedOtp('')
-            setShowOtpBadge(false)
+            if (localStorage.getItem(`otp-${tableId}`)) {
+              localStorage.removeItem(`otp-${tableId}`)
+              localStorage.removeItem(`cart-${tableId}`)
+              setCart([])
+              setSessionOrders([])
+              setDrawer('none')
+              setGeneratedOtp('')
+              setShowOtpBadge(false)
+              // Fresh table, fresh form — don't pre-fill the previous
+              // customer's name/phone for the next one.
+              setName('')
+              setPhone('')
+              setCurrentCustomerName('')
+              setOtpInput('')
+            }
           }
         })
         .catch(() => {})
