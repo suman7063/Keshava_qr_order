@@ -22,6 +22,7 @@ export default function AdminDashboard() {
   const [sessions, setSessions] = useState<DashSession[]>([])
   const [loading, setLoading] = useState(true)
   const [cleaning, setCleaning] = useState(false)
+  const [revPeriod, setRevPeriod] = useState<'today' | '7d' | '30d' | 'all'>('30d')
 
   async function load() {
     const [ordersRes, tablesRes, sessionsRes] = await Promise.all([
@@ -89,6 +90,29 @@ export default function AdminDashboard() {
     await load()
     setCleaning(false)
   }
+
+  // Which table earns the most — ranked revenue per table for a period
+  const revStart = (() => {
+    if (revPeriod === 'all') return null
+    const d = new Date()
+    if (revPeriod === 'today') { d.setHours(0, 0, 0, 0); return d }
+    d.setDate(d.getDate() - (revPeriod === '7d' ? 7 : 30))
+    return d
+  })()
+  const revenueByTable = (() => {
+    const m = new Map<string, { name: string; revenue: number; count: number }>()
+    for (const o of orders) {
+      if (o.status === 'cancelled') continue
+      if (revStart && new Date(o.created_at) < revStart) continue
+      const key = o.table_id || 'unknown'
+      const cur = m.get(key) || { name: o.table?.table_number || '—', revenue: 0, count: 0 }
+      cur.revenue += o.total_amount
+      cur.count += 1
+      m.set(key, cur)
+    }
+    return [...m.values()].sort((a, b) => b.revenue - a.revenue)
+  })()
+  const topTableRevenue = revenueByTable[0]?.revenue || 1
 
   const stats = [
     { label: "Today's Orders", value: todayOrders.length, icon: ShoppingBag, color: 'bg-blue-500' },
@@ -206,6 +230,51 @@ export default function AdminDashboard() {
                 )
               })}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Revenue by table — which table earns the most */}
+      <div className="mt-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h2 className="text-lg font-semibold text-gray-900">Revenue by Table</h2>
+              <div className="flex gap-1.5">
+                {([['today', 'Today'], ['7d', '7 days'], ['30d', '30 days'], ['all', 'All time']] as const).map(([k, lbl]) => (
+                  <button key={k} onClick={() => setRevPeriod(k)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${revPeriod === k ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {revenueByTable.length === 0 ? (
+              <p className="text-gray-400 text-sm">No orders in this period</p>
+            ) : (
+              <div className="space-y-4">
+                {revenueByTable.map((t, i) => (
+                  <div key={t.name + i} className="flex items-center gap-3">
+                    <span className={`w-8 text-center shrink-0 ${i === 0 ? 'text-xl' : 'text-xs font-bold text-gray-400'}`}>
+                      {i === 0 ? '👑' : `#${i + 1}`}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 truncate">Table {t.name}</span>
+                        <span className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency(t.revenue)}</span>
+                      </div>
+                      <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div className={`h-full rounded-full ${i === 0 ? 'bg-orange-500' : 'bg-orange-300'}`}
+                          style={{ width: `${Math.max(4, Math.round((t.revenue / topTableRevenue) * 100))}%` }} />
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{t.count} order{t.count === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
