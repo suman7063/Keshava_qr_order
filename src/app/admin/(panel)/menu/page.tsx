@@ -82,7 +82,6 @@ export default function MenuPage() {
       setStations(Array.isArray(stationList) ? stationList : [])
       setShowMenuImages(settings.show_menu_images ?? true)
       if (restaurant?.name) setRestaurantName(restaurant.name)
-      if (cats.length > 0 && !activeCategory) setActiveCategory(cats[0].id)
     } catch {
       showToast('Could not load menu data. Please refresh.')
     }
@@ -842,6 +841,24 @@ export default function MenuPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Full live preview — the owner sees the real thing before downloading */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Preview — your full menu ({items.filter(i => i.is_available).length} items)
+            </p>
+            <iframe
+              title="Full menu preview"
+              srcDoc={pdfLib ? pdfLib.getPdfHTML(pdfTemplateId, categories, items.filter(i => i.is_available), restaurantName, {
+                bgColor: pdfBgColor || undefined,
+                textColor: pdfTextColor || undefined,
+                subTextColor: pdfSubTextColor || undefined,
+                heroImage: pdfHeroImage || undefined,
+              }) : ''}
+              className="w-full h-110 border border-gray-200 rounded-xl bg-white"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Scroll inside the preview — this is exactly what downloads.</p>
           </div>
 
           <div className="flex gap-3">
