@@ -873,24 +873,11 @@ export default function MenuPage() {
             </div>
           </div>
 
-          {/* Full live preview — the owner sees the real thing before downloading */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Preview — your full menu ({items.filter(i => i.is_available).length} items)
-              </p>
-              <button onClick={() => setShowFullPreview(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700">
-                <Maximize2 className="w-3.5 h-3.5" /> Expand preview
-              </button>
-            </div>
-            <iframe
-              title="Full menu preview"
-              srcDoc={fullPdfHtml}
-              className="w-full h-110 border border-gray-200 rounded-xl bg-white"
-            />
-            <p className="text-[11px] text-gray-400 mt-1">Scroll inside the preview — this is exactly what downloads.</p>
-          </div>
+          {/* Preview opens in its own full-screen modal */}
+          <button onClick={() => setShowFullPreview(true)}
+            className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 rounded-xl py-3 text-sm font-semibold transition-colors">
+            <Maximize2 className="w-4 h-4" /> Preview full menu ({items.filter(i => i.is_available).length} items)
+          </button>
 
           <div className="flex gap-3">
             <button onClick={() => setShowPdfModal(false)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
