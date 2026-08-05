@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Order, OrderStatus } from '@/types'
+import { Order, OrderItem, OrderStatus, MenuCategory, KitchenStation } from '@/types'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { ChefHat, Clock, AlertCircle } from 'lucide-react'
+import { ChefHat, Clock, AlertCircle, Printer } from 'lucide-react'
+import { splitOrderByKitchen, buildKotHTML, printHtml } from '@/lib/kot'
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; variant: 'warning' | 'info' | 'secondary' | 'success' | 'default' | 'danger'; next?: OrderStatus; action?: string }> = {
   pending:    { label: 'Pending',   variant: 'danger' },
@@ -25,6 +26,72 @@ export default function KitchenPage() {
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [stations, setStations] = useState<KitchenStation[]>([])
+  const [categories, setCategories] = useState<MenuCategory[]>([])
+  const [restaurantName, setRestaurantName] = useState('')
+  // This device's kitchen: 'all' | 'main' | a kitchen id (persisted per device)
+  const [selectedKitchen, setSelectedKitchen] = useState<string>('all')
+  const [autoPrint, setAutoPrint] = useState(false)
+  const printedRef = useRef<Set<string>>(new Set())
+
+  // Per-device persisted choices (read after mount — no SSR localStorage)
+  useEffect(() => {
+    setSelectedKitchen(localStorage.getItem('kitchen-device-station') || 'all')
+    setAutoPrint(localStorage.getItem('kitchen-auto-print') === '1')
+    try {
+      printedRef.current = new Set(JSON.parse(localStorage.getItem('kitchen-kot-printed') || '[]'))
+    } catch { /* corrupt store — start fresh */ }
+  }, [])
+
+  function pickKitchen(k: string) {
+    setSelectedKitchen(k)
+    localStorage.setItem('kitchen-device-station', k)
+  }
+
+  function toggleAutoPrint() {
+    setAutoPrint(v => {
+      localStorage.setItem('kitchen-auto-print', v ? '0' : '1')
+      return !v
+    })
+  }
+
+  function markPrinted(key: string) {
+    printedRef.current.add(key)
+    localStorage.setItem('kitchen-kot-printed', JSON.stringify([...printedRef.current].slice(-300)))
+  }
+
+  // Short beep so staff notice new tickets without watching the screen
+  function playBeep() {
+    try {
+      type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext }
+      const AudioCtx = window.AudioContext || (window as AudioWindow).webkitAudioContext
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 880
+      gain.gain.setValueAtTime(0.15, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.6)
+    } catch { /* audio blocked — ignore */ }
+  }
+
+  function printOrder(order: Order) {
+    const all = splitOrderByKitchen(order, categories, stations)
+    const slips = stations.length === 0 || selectedKitchen === 'all'
+      ? all
+      : all.filter(s => (s.kitchenId ?? 'main') === selectedKitchen)
+    if (!slips.length) return
+    printHtml(buildKotHTML(slips, {
+      restaurantName,
+      tableNumber: order.table?.table_number || '—',
+      orderCode: order.id.slice(-6).toUpperCase(),
+      when: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }),
+    }))
+  }
 
   async function fetchOrders() {
     const res = await fetch('/api/orders?today=true')
@@ -36,6 +103,11 @@ export default function KitchenPage() {
 
   useEffect(() => {
     fetchOrders()
+    // Kitchens + category defaults (for KOT routing) + restaurant name
+    fetch('/api/stations').then(r => (r.ok ? r.json() : [])).then(d => setStations(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/menu-categories').then(r => (r.ok ? r.json() : [])).then(d => setCategories(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/restaurants/current').then(r => r.json()).then(r => { if (r?.name) setRestaurantName(r.name) }).catch(() => {})
+
     const supabase = createClient()
     const channel = supabase
       .channel('kitchen-orders')
@@ -61,11 +133,41 @@ export default function KitchenPage() {
     setUpdating(null)
   }
 
-  const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter)
+  // This device's slice of the work: orders that have at least one item for
+  // the selected kitchen, showing only that kitchen's items.
+  const visible = orders
+    .map(order => {
+      if (stations.length === 0 || selectedKitchen === 'all') {
+        return { order, items: order.items || [], other: 0 }
+      }
+      const slip = splitOrderByKitchen(order, categories, stations)
+        .find(s => (s.kitchenId ?? 'main') === selectedKitchen)
+      if (!slip) return null
+      return { order, items: slip.items, other: (order.items?.length || 0) - slip.items.length }
+    })
+    .filter((v): v is { order: Order; items: OrderItem[]; other: number } => v !== null)
+
+  const filtered = filter === 'all' ? visible : visible.filter(v => v.order.status === filter)
   const counts = ACTIVE_STATUSES.reduce((acc, s) => {
-    acc[s] = orders.filter(o => o.status === s).length
+    acc[s] = visible.filter(v => v.order.status === s).length
     return acc
   }, {} as Record<string, number>)
+
+  // Auto-print: any confirmed order this device hasn't printed yet gets its
+  // kitchen slip printed silently (hidden iframe; kiosk-printing skips the
+  // dialog) — once per order per kitchen, remembered across refreshes.
+  useEffect(() => {
+    if (!autoPrint || loading) return
+    for (const v of visible) {
+      if (v.order.status !== 'confirmed') continue
+      const key = `${v.order.id}:${selectedKitchen}`
+      if (printedRef.current.has(key)) continue
+      printOrder(v.order)
+      markPrinted(key)
+      playBeep()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, autoPrint, selectedKitchen, stations, categories, loading])
 
   function getElapsedMinutes(dateStr: string) {
     return Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000)
@@ -82,15 +184,38 @@ export default function KitchenPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold">Kitchen Dashboard</h1>
-              <p className="text-gray-400 text-sm">{orders.length} active orders</p>
+              <p className="text-gray-400 text-sm">{visible.length} active orders</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-green-400 text-sm">Live</span>
+          <div className="flex items-center gap-4">
+            <button onClick={toggleAutoPrint}
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors cursor-pointer',
+                autoPrint ? 'border-green-500 text-green-400 bg-green-500/10' : 'border-gray-600 text-gray-400 hover:text-white')}>
+              <Printer className="w-4 h-4" /> Auto-print {autoPrint ? 'ON' : 'OFF'}
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-green-400 text-sm">Live</span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Kitchen picker — which kitchen is this device? */}
+      {stations.length > 0 && (
+        <div className="bg-gray-800 border-b border-gray-700 px-6 py-3">
+          <div className="max-w-7xl mx-auto flex gap-2 items-center overflow-x-auto scrollbar-none">
+            <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide shrink-0">Kitchen:</span>
+            {[{ id: 'all', name: 'All kitchens' }, { id: 'main', name: 'Main Kitchen' }, ...stations.map(s => ({ id: s.id, name: s.name }))].map(k => (
+              <button key={k.id} onClick={() => pickKitchen(k.id)}
+                className={cn('px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors cursor-pointer',
+                  selectedKitchen === k.id ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-white')}>
+                {k.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Status filters */}
       <div className="bg-gray-800 border-b border-gray-700 px-6 py-3">
@@ -99,7 +224,7 @@ export default function KitchenPage() {
             onClick={() => setFilter('all')}
             className={cn('px-4 py-1.5 rounded-full text-sm font-medium transition-colors', filter === 'all' ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-white')}
           >
-            All ({orders.length})
+            All ({visible.length})
           </button>
           {ACTIVE_STATUSES.map(s => (
             <button
@@ -125,7 +250,7 @@ export default function KitchenPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map(order => {
+            {filtered.map(({ order, items, other }) => {
               const config = STATUS_CONFIG[order.status]
               const elapsed = getElapsedMinutes(order.created_at)
               const isUrgent = elapsed > 15 && order.status !== 'ready'
@@ -159,9 +284,9 @@ export default function KitchenPage() {
                     </div>
                   </div>
 
-                  {/* Items */}
+                  {/* Items — only this kitchen's share when a kitchen is selected */}
                   <div className="p-4 flex-1 space-y-2">
-                    {order.items?.map(item => (
+                    {items.map(item => (
                       <div key={item.id} className="flex items-start gap-2">
                         <span className="bg-orange-500 text-white text-xs font-bold rounded px-1.5 py-0.5 shrink-0">
                           x{item.quantity}
@@ -172,6 +297,9 @@ export default function KitchenPage() {
                         </div>
                       </div>
                     ))}
+                    {other > 0 && (
+                      <p className="text-xs text-gray-500 italic">+{other} item{other === 1 ? '' : 's'} for other kitchens</p>
+                    )}
                     {order.notes && (
                       <div className="mt-2 p-2 bg-yellow-900/30 rounded-lg border border-yellow-800">
                         <p className="text-xs text-yellow-300">Note: {order.notes}</p>
@@ -185,17 +313,23 @@ export default function KitchenPage() {
                       <span className="text-gray-400 text-sm">Total</span>
                       <span className="font-bold text-orange-400">{formatCurrency(order.total_amount)}</span>
                     </div>
-                    {config.next && config.action && (
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        loading={updating === order.id}
-                        onClick={() => updateStatus(order.id, config.next!)}
-                        variant={order.status === 'pending' ? 'primary' : 'secondary'}
-                      >
-                        {config.action}
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {config.next && config.action && (
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          loading={updating === order.id}
+                          onClick={() => updateStatus(order.id, config.next!)}
+                          variant={order.status === 'pending' ? 'primary' : 'secondary'}
+                        >
+                          {config.action}
+                        </Button>
+                      )}
+                      <button onClick={() => printOrder(order)} title="Print KOT"
+                        className="shrink-0 px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 transition-colors cursor-pointer">
+                        <Printer className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )

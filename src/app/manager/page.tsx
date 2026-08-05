@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { Order, OrderStatus } from '@/types'
+import { Order, OrderStatus, MenuCategory, KitchenStation } from '@/types'
+import { splitOrderByKitchen, buildKotHTML } from '@/lib/kot'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -49,6 +50,8 @@ export default function ManagerPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [billSessions, setBillSessions] = useState<BillSession[]>([])
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([])
+  const [stations, setStations] = useState<KitchenStation[]>([])
+  const [categories, setCategories] = useState<MenuCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
@@ -130,6 +133,16 @@ export default function ManagerPage() {
       .then(r => { if (r?.name) setRestaurantName(r.name) })
       .catch(() => {})
 
+    // Kitchens + category defaults — used to split the KOT per kitchen
+    fetch('/api/stations')
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => setStations(Array.isArray(d) ? d : []))
+      .catch(() => {})
+    fetch('/api/menu-categories')
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => setCategories(Array.isArray(d) ? d : []))
+      .catch(() => {})
+
     const channel = supabase
       .channel('manager-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
@@ -143,40 +156,15 @@ export default function ManagerPage() {
   }, [])
 
   function printKOT(order: Order) {
-    const now = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-    const items = order.items?.map(i =>
-      `<tr>
-        <td style="padding:4px 8px;font-size:14px;">${i.menu_item?.name || ''}</td>
-        <td style="padding:4px 8px;font-size:14px;text-align:right;font-weight:bold;">${i.quantity > 1 ? `×${i.quantity}` : ''}</td>
-      </tr>`
-    ).join('')
-
-    const html = `
-      <html><head><title>KOT</title>
-      <style>
-        body { font-family: monospace; width: 280px; margin: 0 auto; padding: 12px; }
-        h2 { text-align: center; font-size: 18px; margin: 0 0 4px; }
-        .sub { text-align: center; font-size: 12px; color: #555; margin-bottom: 12px; }
-        .divider { border-top: 1px dashed #000; margin: 8px 0; }
-        table { width: 100%; border-collapse: collapse; }
-        th { font-size: 12px; text-transform: uppercase; color: #888; padding: 4px 8px; text-align: left; }
-        .footer { text-align: center; font-size: 11px; color: #888; margin-top: 12px; }
-      </style></head>
-      <body>
-        <h2>KOT</h2>
-        <div class="sub">${restaurantName || ''}</div>
-        <div class="divider"></div>
-        <p style="margin:4px 0;font-size:14px;"><strong>Table:</strong> ${order.table?.table_number || '—'}</p>
-        <p style="margin:4px 0;font-size:14px;"><strong>Order#:</strong> ${order.id.slice(-6).toUpperCase()}</p>
-        <p style="margin:4px 0;font-size:12px;color:#555;">${now}</p>
-        <div class="divider"></div>
-        <table>
-          <thead><tr><th>Item</th><th style="text-align:center;">Qty</th></tr></thead>
-          <tbody>${items}</tbody>
-        </table>
-        <div class="divider"></div>
-        <div class="footer">— Kitchen Copy —</div>
-      </body></html>`
+    // One slip per kitchen (page-break between) — single plain slip when
+    // the restaurant has no kitchens configured.
+    const slips = splitOrderByKitchen(order, categories, stations)
+    const html = buildKotHTML(slips, {
+      restaurantName: restaurantName || '',
+      tableNumber: order.table?.table_number || '—',
+      orderCode: order.id.slice(-6).toUpperCase(),
+      when: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }),
+    })
 
     const win = window.open('', '_blank', 'width=320,height=500')
     if (!win) return
