@@ -335,6 +335,23 @@ export default function MenuPage() {
     fetchData()
   }
 
+  async function clearMenu() {
+    const typed = prompt(
+      `This deletes ALL ${items.length} menu items (categories & kitchens stay). ` +
+      `Items with past orders are kept but marked unavailable. This cannot be undone.\n\n` +
+      `Type DELETE to confirm:`
+    )
+    if (typed !== 'DELETE') return
+    const res = await fetch('/api/menu-items/clear', { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      showToast(data.error || 'Could not clear the menu.')
+    } else {
+      showToast(`${data.deleted} item${data.deleted === 1 ? '' : 's'} deleted${data.kept ? ` · ${data.kept} with past orders marked unavailable` : ''}.`)
+      fetchData()
+    }
+  }
+
   async function toggleAvailable(item: MenuItem) {
     const res = await fetch(`/api/menu-items/${item.id}`, {
       method: 'PATCH',
@@ -375,6 +392,13 @@ export default function MenuPage() {
           <p className="text-gray-500 text-sm mt-0.5">Manage menu items and categories</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Clear everything — type-to-confirm destructive action */}
+          {items.length > 0 && (
+            <button onClick={clearMenu}
+              className="flex items-center gap-1.5 border border-red-200 rounded-xl px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap">
+              <Trash2 className="w-4 h-4" /> Clear Menu
+            </button>
+          )}
           {/* Import CSV */}
           <button onClick={() => { setShowImportModal(true); setImportRows([]); setImportErrors([]); setImportFileName(''); setCsvGrid([]); setCsvMapping({ cat: -1, sub: -1, name: -1, price: -1, veg: -1, desc: -1 }); setMappingNeeded(false) }}
             className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
