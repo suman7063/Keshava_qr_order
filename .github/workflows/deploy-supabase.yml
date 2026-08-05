@@ -6,6 +6,7 @@ name: 🚀 Deploy Supabase
 #
 #  SUPABASE_ACCESS_TOKEN  → supabase.com → Account → Access Tokens
 #  SUPABASE_PROJECT_REF   → your project ref
+#  SUPABASE_DB_PASSWORD   → database password (Project Settings → Database)
 #
 # Netlify env vars (Netlify Dashboard → Site → Environment Variables):
 #  NEXT_PUBLIC_SUPABASE_URL
@@ -45,11 +46,13 @@ jobs:
         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
       - name: Push DB migrations
         run: supabase db push
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
       - name: Done
         run: echo "✅ Supabase deploy complete → https://supabase.com/dashboard/project/${{ secrets.SUPABASE_PROJECT_REF }}"
