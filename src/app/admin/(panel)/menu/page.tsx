@@ -6,15 +6,13 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Download, Tags, ChefHat, Info, Upload, FileSpreadsheet } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download, ChefHat, Upload, FileSpreadsheet } from 'lucide-react'
+import Link from 'next/link'
 import { parseCSV } from '@/lib/csv'
 import { VegMark } from '@/components/ui/VegMark'
 import { deleteImage } from '@/lib/uploadImage'
 import { useCropUpload } from '@/components/ui/useCropUpload'
 import { Toast, useToast } from '@/components/ui/Toast'
-import { CATEGORY_SUGGESTIONS } from '@/lib/categories'
-
-const STATION_SUGGESTIONS = ['South Kitchen', 'North Kitchen', 'Chinese', 'Tandoor', 'Beverages', 'Desserts']
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([])
@@ -33,15 +31,7 @@ export default function MenuPage() {
   const [pdfSubTextColor, setPdfSubTextColor] = useState('')
   const [pdfHeroImage, setPdfHeroImage] = useState('')
   const [restaurantName, setRestaurantName] = useState('Our Restaurant')
-  const [showCatModal, setShowCatModal] = useState(false)
-  const [catName, setCatName] = useState('')
-  const [catError, setCatError] = useState('')
-  const [savingCat, setSavingCat] = useState(false)
   const [stations, setStations] = useState<KitchenStation[]>([])
-  const [showStationModal, setShowStationModal] = useState(false)
-  const [stationName, setStationName] = useState('')
-  const [stationError, setStationError] = useState('')
-  const [savingStation, setSavingStation] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importRows, setImportRows] = useState<{ category: string; name: string; price: number; is_vegetarian: boolean; description?: string }[]>([])
   const [importErrors, setImportErrors] = useState<string[]>([])
@@ -114,71 +104,6 @@ export default function MenuPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData() }, [])
 
-  async function addCategory() {
-    if (!catName.trim()) return
-    setSavingCat(true)
-    setCatError('')
-    const res = await fetch('/api/menu-categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: catName.trim(), display_order: categories.length }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      setCatError(data.error || 'Could not create category.')
-    } else {
-      showToast(`Category "${catName.trim()}" created!`)
-      setCatName('')
-      fetchData()
-    }
-    setSavingCat(false)
-  }
-
-  async function addStation() {
-    if (!stationName.trim()) return
-    setSavingStation(true)
-    setStationError('')
-    const res = await fetch('/api/stations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: stationName.trim(), display_order: stations.length }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      setStationError(data.error || 'Could not create kitchen.')
-    } else {
-      showToast(`Kitchen "${stationName.trim()}" created!`)
-      setStationName('')
-      fetchData()
-    }
-    setSavingStation(false)
-  }
-
-  async function deleteStation(id: string, name: string) {
-    if (!confirm(`Delete kitchen "${name}"? Its items will fall back to Main Kitchen.`)) return
-    const res = await fetch(`/api/stations/${id}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      showToast(data.error || 'Could not delete kitchen.')
-    } else {
-      showToast(`Kitchen "${name}" deleted.`)
-      fetchData()
-    }
-  }
-
-  async function setCategoryStation(catId: string, stationId: string) {
-    const res = await fetch(`/api/menu-categories/${catId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ default_station_id: stationId || null }),
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      showToast(data.error || 'Could not set the kitchen.')
-    }
-    fetchData()
-  }
-
   function stationNameOf(id?: string | null): string | undefined {
     if (!id) return undefined
     return stations.find(s => s.id === id)?.name
@@ -188,19 +113,6 @@ export default function MenuPage() {
   function resolveItemStation(item: MenuItem): string | undefined {
     const cat = categories.find(c => c.id === item.category_id)
     return stationNameOf(item.station_id) ?? stationNameOf(cat?.default_station_id)
-  }
-
-  async function deleteCategory(id: string, name: string) {
-    if (!confirm(`Delete category "${name}"?`)) return
-    const res = await fetch(`/api/menu-categories/${id}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      showToast(data.error || 'Could not delete category.')
-    } else {
-      showToast(`Category "${name}" deleted.`)
-      if (activeCategory === id) setActiveCategory(null)
-      fetchData()
-    }
   }
 
   function downloadSampleCSV() {
@@ -438,20 +350,10 @@ export default function MenuPage() {
           <p className="text-gray-500 text-sm mt-0.5">Manage menu items and categories</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Manage categories */}
-          <button onClick={() => { setShowCatModal(true); setCatError('') }}
-            className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
-            <Tags className="w-4 h-4" /> Categories
-          </button>
-          {/* Manage kitchens (internally: kitchen_stations) */}
-          <button onClick={() => { setShowStationModal(true); setStationError('') }}
-            className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
-            <ChefHat className="w-4 h-4" /> Kitchens
-          </button>
           {/* Import CSV */}
           <button onClick={() => { setShowImportModal(true); setImportRows([]); setImportErrors([]); setImportFileName(''); setCsvGrid([]); setCsvMapping({ cat: -1, name: -1, price: -1, veg: -1, desc: -1 }); setMappingNeeded(false) }}
             className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
-            <Upload className="w-4 h-4" /> Import
+            <Upload className="w-4 h-4" /> Import Menu
           </button>
           {/* Export buttons */}
           <div className="flex items-center gap-1 border border-gray-200 rounded-xl overflow-hidden">
@@ -694,11 +596,10 @@ export default function MenuPage() {
             {categories.length === 0 ? (
               <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
                 <p className="text-xs text-amber-700">No categories yet. Create one first to add items to it.</p>
-                <button type="button"
-                  onClick={() => { setShowModal(false); setShowCatModal(true); setCatError('') }}
+                <Link href="/admin/categories"
                   className="shrink-0 text-xs font-semibold text-orange-600 hover:text-orange-700 whitespace-nowrap">
                   + New Category
-                </button>
+                </Link>
               </div>
             ) : (
               <select
@@ -761,167 +662,6 @@ export default function MenuPage() {
           <div className="col-span-2 flex gap-3 pt-2">
             <Button variant="outline" className="flex-1" onClick={() => setShowModal(false)}>Cancel</Button>
             <Button className="flex-1" loading={saving} onClick={save}>{editItem ? 'Save Changes' : 'Add Item'}</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Manage Categories Modal */}
-      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title="Manage Categories">
-        <div className="space-y-5">
-          {/* Existing categories with delete */}
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Your categories</p>
-            {categories.length === 0 ? (
-              <p className="text-sm text-gray-400">No categories yet. Add one below.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {categories.map(cat => {
-                  const count = items.filter(i => i.category_id === cat.id).length
-                  return (
-                    <div key={cat.id} className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="text-sm font-medium text-gray-800 min-w-0 truncate">{cat.name}
-                        <span className="text-xs text-gray-400 ml-2">{count} item{count === 1 ? '' : 's'}</span>
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {stations.length > 0 && (
-                          <select value={cat.default_station_id || ''}
-                            onChange={e => setCategoryStation(cat.id, e.target.value)}
-                            title="Default kitchen for this category's items"
-                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 max-w-32">
-                            <option value="">Main Kitchen</option>
-                            {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                          </select>
-                        )}
-                        <button onClick={() => deleteCategory(cat.id, cat.name)}
-                          className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Add new — presets + custom */}
-          <div className="border-t border-gray-100 pt-4">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Add a category</p>
-            {(() => {
-              const existing = new Set(categories.map(c => c.name.toLowerCase()))
-              const presets = CATEGORY_SUGGESTIONS.filter(s => !existing.has(s.toLowerCase()))
-              if (presets.length === 0) return null
-              return (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {presets.map(s => (
-                    <button key={s} type="button" onClick={() => setCatName(s)}
-                      className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${catName === s ? 'bg-orange-500 text-white border-orange-500' : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'}`}>
-                      + {s}
-                    </button>
-                  ))}
-                </div>
-              )
-            })()}
-            <div className="flex gap-2">
-              <input
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
-                value={catName}
-                onChange={e => setCatName(e.target.value)}
-                placeholder="Pick a chip or type a custom name"
-                maxLength={100}
-              />
-              <Button loading={savingCat} onClick={addCategory} disabled={!catName.trim()}>Add</Button>
-            </div>
-            {catError && <div className="mt-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-2">{catError}</div>}
-          </div>
-
-          <div className="flex justify-end pt-1">
-            <Button variant="outline" onClick={() => setShowCatModal(false)}>Done</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Manage Kitchens Modal */}
-      <Modal isOpen={showStationModal} onClose={() => setShowStationModal(false)} title="Kitchens"
-        headerExtra={
-          <div className="relative group">
-            <button type="button" aria-label="What are kitchens?"
-              className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-500 focus:bg-blue-50 focus:text-blue-500 focus:outline-none transition-colors">
-              <Info className="w-4.5 h-4.5" />
-            </button>
-            {/* Tooltip — shows above the icon on hover/focus (focus covers touch) */}
-            <div className="absolute bottom-full right-0 mb-2 w-72 bg-gray-900 text-white text-xs leading-relaxed rounded-xl px-4 py-3 shadow-xl opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 z-10">
-              Kitchens are where food is prepared (South Kitchen, Beverages…). Each kitchen gets its own
-              KOT slip. Items with no kitchen go to <span className="font-semibold">Main Kitchen</span>.
-              <span className="absolute top-full right-4 border-4 border-transparent border-t-gray-900" />
-            </div>
-          </div>
-        }>
-        <div className="space-y-5">
-          {/* Existing kitchens with delete */}
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Your kitchens</p>
-            {stations.length === 0 ? (
-              <p className="text-sm text-gray-400">No kitchens yet — everything prints as one slip (Main Kitchen). Add one below to split KOTs.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {stations.map(s => {
-                  const catCount = categories.filter(c => c.default_station_id === s.id).length
-                  const itemCount = items.filter(i => i.station_id === s.id).length
-                  return (
-                    <div key={s.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="text-sm font-medium text-gray-800 flex items-center gap-2">
-                        <ChefHat className="w-4 h-4 text-orange-400" /> {s.name}
-                        <span className="text-xs text-gray-400">
-                          {catCount > 0 && `${catCount} categor${catCount === 1 ? 'y' : 'ies'}`}
-                          {catCount > 0 && itemCount > 0 && ' · '}
-                          {itemCount > 0 && `${itemCount} item override${itemCount === 1 ? '' : 's'}`}
-                        </span>
-                      </span>
-                      <button onClick={() => deleteStation(s.id, s.name)}
-                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Add new — presets + custom */}
-          <div className="border-t border-gray-100 pt-4">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Add a kitchen</p>
-            {(() => {
-              const existing = new Set(stations.map(s => s.name.toLowerCase()))
-              const presets = STATION_SUGGESTIONS.filter(s => !existing.has(s.toLowerCase()))
-              if (presets.length === 0) return null
-              return (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {presets.map(s => (
-                    <button key={s} type="button" onClick={() => setStationName(s)}
-                      className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${stationName === s ? 'bg-orange-500 text-white border-orange-500' : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'}`}>
-                      + {s}
-                    </button>
-                  ))}
-                </div>
-              )
-            })()}
-            <div className="flex gap-2">
-              <input
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400 text-gray-900"
-                value={stationName}
-                onChange={e => setStationName(e.target.value)}
-                placeholder="Pick a chip or type a custom name"
-                maxLength={100}
-              />
-              <Button loading={savingStation} onClick={addStation} disabled={!stationName.trim()}>Add</Button>
-            </div>
-            {stationError && <div className="mt-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-2">{stationError}</div>}
-          </div>
-
-          <div className="flex justify-end pt-1">
-            <Button variant="outline" onClick={() => setShowStationModal(false)}>Done</Button>
           </div>
         </div>
       </Modal>
