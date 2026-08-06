@@ -24,6 +24,7 @@ export default function MenuPage() {
   const [showMenuImages, setShowMenuImages] = useState(true)
   const { toast, showToast, dismissToast } = useToast()
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [showPdfSettings, setShowPdfSettings] = useState(false) // right-side customize drawer
   const [pdfLib, setPdfLib] = useState<typeof import('@/lib/pdf-templates') | null>(null)
   const [pdfTemplateId, setPdfTemplateId] = useState('pdf1')
   const [pdfBgColor, setPdfBgColor] = useState('')
@@ -252,6 +253,7 @@ export default function MenuPage() {
 
   async function openPdfModal() {
     if (!pdfLib) setPdfLib(await import('@/lib/pdf-templates'))
+    setShowPdfSettings(false)
     setShowPdfModal(true)
   }
 
@@ -484,7 +486,7 @@ export default function MenuPage() {
                         <p className="font-medium text-gray-900 whitespace-nowrap">{item.name}</p>
                         <VegMark veg={item.is_vegetarian} />
                       </div>
-                      {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1 max-w-[140px]">{item.description}</p>}
+                      {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1 max-w-35">{item.description}</p>}
                     </div>
                   </div>
                 </td>
@@ -811,7 +813,10 @@ export default function MenuPage() {
       {/* PDF Template Picker Modal */}
       <Modal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} title="Choose PDF Template" size="lg">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {/* Box 1 — templates. Tapping one opens the settings drawer. */}
+          <div className="border border-gray-100 rounded-2xl p-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Templates</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {(pdfLib?.PDF_TEMPLATES ?? []).map(t => {
               const isSelected = pdfTemplateId === t.id
               const previewHtml = pdfLib!.getPdfHTML(
@@ -827,7 +832,7 @@ export default function MenuPage() {
                 } : {}
               )
               return (
-                <button key={t.id} onClick={() => setPdfTemplateId(t.id)}
+                <button key={t.id} onClick={() => { setPdfTemplateId(t.id); setShowPdfSettings(true) }}
                   className={`min-w-0 rounded-2xl border-2 flex flex-col items-center gap-2 pb-3 overflow-hidden transition-all cursor-pointer ${isSelected ? 'border-orange-400 shadow-md' : 'border-gray-100 hover:border-gray-300'}`}>
                   {/* Responsive scaled preview — the iframe is 4× the container
                       and scaled to 0.25, so it always fills the card width. */}
@@ -849,73 +854,99 @@ export default function MenuPage() {
                 </button>
               )
             })}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-3">✦ Tap a template to open its settings</p>
           </div>
-          {/* Customization */}
-          <div className="border border-gray-100 rounded-2xl p-4 space-y-3 bg-gray-50">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customize</p>
-            <div className="flex items-center gap-6 flex-wrap">
+        </div>
+
+      </Modal>
+
+      {/* PDF customize drawer — slides in from the SCREEN's right edge */}
+      {showPdfModal && (
+        <>
+          {showPdfSettings && (
+            <div className="fixed inset-0 z-60 bg-black/20" onClick={() => setShowPdfSettings(false)} />
+          )}
+          <div className={`fixed inset-y-0 right-0 z-70 w-80 max-w-[90vw] bg-white shadow-2xl flex flex-col transition-transform duration-300 ${showPdfSettings ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Customize · {pdfLib?.PDF_TEMPLATES.find(t => t.id === pdfTemplateId)?.label}
+              </p>
+              <button onClick={() => setShowPdfSettings(false)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4 overflow-y-auto">
               {/* BG color */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-gray-500">Background</span>
-                <input type="color"
-                  value={pdfBgColor || '#ffffff'}
-                  onChange={e => setPdfBgColor(e.target.value)}
-                  className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
-                {pdfBgColor && <button onClick={() => setPdfBgColor('')} className="text-[10px] text-gray-400 hover:text-red-400">Reset</button>}
+                <div className="flex items-center gap-2">
+                  {pdfBgColor && <button onClick={() => setPdfBgColor('')} className="text-[10px] text-gray-400 hover:text-red-400 cursor-pointer">Reset</button>}
+                  <input type="color"
+                    value={pdfBgColor || '#ffffff'}
+                    onChange={e => setPdfBgColor(e.target.value)}
+                    className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
+                </div>
               </div>
               {/* Heading color */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-gray-500">Heading</span>
-                <input type="color"
-                  value={pdfTextColor || '#f59e0b'}
-                  onChange={e => setPdfTextColor(e.target.value)}
-                  className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
-                {pdfTextColor && <button onClick={() => setPdfTextColor('')} className="text-[10px] text-gray-400 hover:text-red-400">Reset</button>}
+                <div className="flex items-center gap-2">
+                  {pdfTextColor && <button onClick={() => setPdfTextColor('')} className="text-[10px] text-gray-400 hover:text-red-400 cursor-pointer">Reset</button>}
+                  <input type="color"
+                    value={pdfTextColor || '#f59e0b'}
+                    onChange={e => setPdfTextColor(e.target.value)}
+                    className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
+                </div>
               </div>
               {/* Subheading / body text color */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-gray-500">Subheading</span>
-                <input type="color"
-                  value={pdfSubTextColor || '#444444'}
-                  onChange={e => setPdfSubTextColor(e.target.value)}
-                  className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
-                {pdfSubTextColor && <button onClick={() => setPdfSubTextColor('')} className="text-[10px] text-gray-400 hover:text-red-400">Reset</button>}
+                <div className="flex items-center gap-2">
+                  {pdfSubTextColor && <button onClick={() => setPdfSubTextColor('')} className="text-[10px] text-gray-400 hover:text-red-400 cursor-pointer">Reset</button>}
+                  <input type="color"
+                    value={pdfSubTextColor || '#444444'}
+                    onChange={e => setPdfSubTextColor(e.target.value)}
+                    className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
+                </div>
               </div>
               {/* Hero image — only for templates with image */}
               {pdfLib?.PDF_TEMPLATES.find(t => t.id === pdfTemplateId)?.hasImage && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-gray-500">Hero Image</span>
-                  {pdfHeroImage && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={pdfHeroImage} alt="hero" className="w-7 h-7 rounded object-cover border border-gray-200" />
-                  )}
-                  <label className="text-xs text-orange-500 hover:text-orange-600 cursor-pointer font-medium">
-                    {pdfHeroImage ? 'Change' : '+ Upload'}
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePdfHeroUpload} />
-                  </label>
-                  {pdfHeroImage && <button onClick={() => setPdfHeroImage('')} className="text-[10px] text-gray-400 hover:text-red-400">Remove</button>}
+                  <div className="flex items-center gap-2">
+                    {pdfHeroImage && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={pdfHeroImage} alt="hero" className="w-7 h-7 rounded object-cover border border-gray-200" />
+                    )}
+                    <label className="text-xs text-orange-500 hover:text-orange-600 cursor-pointer font-medium">
+                      {pdfHeroImage ? 'Change' : '+ Upload'}
+                      <input type="file" accept="image/*" className="hidden" onChange={handlePdfHeroUpload} />
+                    </label>
+                    {pdfHeroImage && <button onClick={() => setPdfHeroImage('')} className="text-[10px] text-gray-400 hover:text-red-400 cursor-pointer">Remove</button>}
+                  </div>
                 </div>
               )}
+              <p className="text-[10px] text-gray-400 leading-snug pt-1">Changes show live on the selected template card.</p>
+            </div>
+
+            {/* Pinned footer — preview + download live in the drawer */}
+            <div className="mt-auto border-t border-gray-100 p-4 space-y-2 shrink-0">
+              <button onClick={() => setShowFullPreview(true)}
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 rounded-xl py-2.5 text-sm font-semibold transition-colors cursor-pointer">
+                <Maximize2 className="w-4 h-4" /> Preview ({items.filter(i => i.is_available).length} items)
+              </button>
+              <button onClick={exportPDF}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer">
+                <Download className="w-4 h-4" /> Download PDF
+              </button>
             </div>
           </div>
-
-          {/* Preview opens in its own full-screen modal */}
-          <button onClick={() => setShowFullPreview(true)}
-            className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 rounded-xl py-3 text-sm font-semibold transition-colors">
-            <Maximize2 className="w-4 h-4" /> Preview full menu ({items.filter(i => i.is_available).length} items)
-          </button>
-
-          <div className="flex gap-3">
-            <button onClick={() => setShowPdfModal(false)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
-            <button onClick={exportPDF} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
-              <Download className="w-4 h-4" /> Download PDF
-            </button>
-          </div>
-        </div>
-      </Modal>
+        </>
+      )}
       {/* Expanded full-screen menu preview */}
       {showFullPreview && (
-        <div className="fixed inset-0 z-60 bg-black/70 flex items-center justify-center p-4"
+        <div className="fixed inset-0 z-80 bg-black/70 flex items-center justify-center p-4"
           onClick={() => setShowFullPreview(false)}>
           <div className="relative bg-white rounded-2xl w-full max-w-4xl h-[92vh] flex flex-col overflow-hidden shadow-2xl"
             onClick={e => e.stopPropagation()}>
