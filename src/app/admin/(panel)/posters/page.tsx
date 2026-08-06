@@ -25,8 +25,7 @@ interface MenuItem {
 }
 
 const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || ''
-const PREVIEW_W = 360
-const SCALE = PREVIEW_W / POSTER_W
+const PREVIEW_W = 360 // max preview width — shrinks responsively below this
 
 /** Apply the user's photo-layer % on top of an image background (null = keep template default). */
 function withOverlay(bg: Background, pct: number | null): Background {
@@ -92,6 +91,25 @@ export default function PostersPage() {
 
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const posterRef = useRef<HTMLDivElement>(null)
+
+  // Fully responsive preview: the poster shrinks to whatever width is
+  // available so the layout never breaks — toolbars and click positions
+  // all follow the live scale.
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [previewW, setPreviewW] = useState(PREVIEW_W)
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width ?? PREVIEW_W
+      // settings live in their own column now — the poster only needs a tiny
+      // margin so it never touches the box edge
+      setPreviewW(Math.max(200, Math.min(PREVIEW_W, w - 8)))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const scale = previewW / POSTER_W
 
   // Load restaurant + menu, then build the QR that points at the public menu.
   useEffect(() => {
@@ -253,8 +271,8 @@ export default function PostersPage() {
   // Open the toolbar just above the clicked element (below it if no room above).
   const TOOLBAR_H = selText ? (companionShape ? 150 : 104) : selImage || (selShape && selShape.content === undefined) ? 56 : 104
   const posEl = selText || selImage || selShape
-  const elTopPx = posEl ? posEl.y * SCALE : 0
-  const elBottomPx = posEl ? (posEl.y + posEl.h) * SCALE : 0
+  const elTopPx = posEl ? posEl.y * scale : 0
+  const elBottomPx = posEl ? (posEl.y + posEl.h) * scale : 0
   const toolbarTop = elTopPx - TOOLBAR_H - 8 >= 0 ? elTopPx - TOOLBAR_H - 8 : elBottomPx + 8
   const elPatchFor = (id: string, p: { color?: string; sizeMult?: number; bold?: boolean; fill?: string; textColor?: string; borderColor?: string; borderWidth?: number }) =>
     setElFx(prev => ({ ...prev, [id]: { ...prev[id], ...p } }))
@@ -267,8 +285,8 @@ export default function PostersPage() {
   function handleCanvasClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!activeDoc) return
     const rect = e.currentTarget.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / SCALE
-    const y = (e.clientY - rect.top) / SCALE
+    const x = (e.clientX - rect.left) / scale
+    const y = (e.clientY - rect.top) / scale
     const hits = activeDoc.elements
       .map((el, i) => ({ el, i }))
       .filter(({ el }) => el.type === 'text' || el.type === 'image' || el.type === 'shape')
@@ -373,15 +391,15 @@ export default function PostersPage() {
       <div className="flex flex-col min-[960px]:flex-row gap-6">
         {/* ── Preview (right, large, always visible) ──── */}
         <div className="flex-1 order-2">
-          <div className="bg-gray-50 rounded-2xl border border-gray-100 p-6 relative">
-            <div className="flex flex-wrap gap-6 items-start justify-center">
+          <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 relative">
+            <div ref={wrapRef} className="flex flex-wrap gap-4 items-start justify-center">
               <div className="flex flex-col items-center">
-                <div className="relative" style={{ width: PREVIEW_W, height: POSTER_H * SCALE }}>
-              <div style={{ width: PREVIEW_W, height: POSTER_H * SCALE }} className="rounded-lg overflow-hidden shadow-xl bg-white cursor-pointer"
+                <div className="relative" style={{ width: previewW, height: POSTER_H * scale }}>
+              <div style={{ width: previewW, height: POSTER_H * scale }} className="rounded-lg overflow-hidden shadow-xl bg-white cursor-pointer"
                 onClick={handleCanvasClick}>
                 {activeDoc ? (
                   <>
-                    <div style={{ transform: `scale(${SCALE})`, transformOrigin: 'top left', width: POSTER_W, height: POSTER_H }}>
+                    <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: POSTER_W, height: POSTER_H }}>
                       <PosterRenderer doc={activeDoc} data={bindingData} selectedId={selectedId} />
                     </div>
                     {/* full-res, non-interactive copy for export (no selection outline) */}
@@ -392,7 +410,7 @@ export default function PostersPage() {
                 ) : html ? (
                   <iframe ref={iframeRef} title="poster-preview" srcDoc={html}
                     width={POSTER_W} height={POSTER_H}
-                    style={{ transform: `scale(${SCALE})`, transformOrigin: 'top left', border: 0 }} />
+                    style={{ transform: `scale(${scale})`, transformOrigin: 'top left', border: 0 }} />
                 ) : null}
               </div>
 
@@ -521,79 +539,83 @@ export default function PostersPage() {
                 </p>
               </div>
 
-              {activeDoc && (
-                <div className="bg-white rounded-xl border border-gray-100 p-4 w-40 shrink-0 space-y-4">
-                  <div>
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Size</p>
-                    <div className="flex flex-col gap-1.5">
-                      {(Object.keys(POSTER_SIZES) as PosterSizeKey[]).map(k => (
-                        <button key={k} onClick={() => setSize(k)}
-                          className={`rounded-lg border py-2 text-xs font-semibold cursor-pointer transition-colors ${size === k ? 'border-orange-400 text-orange-600 bg-orange-50' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-                          {POSTER_SIZES[k].label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Background — colour OR image, never both */}
-                  <div>
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Background</p>
-                    <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-2.5">
-                      {(['colour', 'image'] as const).map(m => (
-                        <button key={m} onClick={() => setBgMode(m)}
-                          className={`flex-1 py-1.5 text-[10px] font-semibold capitalize cursor-pointer transition-colors ${activeBgMode === m ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-                    {activeBgMode === 'colour' ? (
-                      <ColorRow label="Colour" value={color || data.accent} onChange={setColor} onReset={color ? () => setColor('') : undefined} />
-                    ) : (
-                      <>
-                        <label className={`flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-2 py-1.5 text-[11px] font-medium text-gray-600 cursor-pointer hover:border-orange-300 hover:text-orange-600 ${uploadingBg ? 'opacity-50 cursor-wait' : ''}`}>
-                          <ImagePlus className="w-3.5 h-3.5" /> {uploadingBg ? 'Uploading…' : (posterBg || bgIsImage) ? 'Change image' : 'Upload image'}
-                          <input type="file" accept="image/*" className="hidden" disabled={uploadingBg} onChange={handlePosterBgUpload} />
-                        </label>
-                        {!posterBg && bgIsImage && <p className="mt-1 text-[10px] text-gray-400 leading-snug">Using your cover photo</p>}
-                        {!posterBg && !bgIsImage && <p className="mt-1 text-[10px] text-gray-400 leading-snug">Upload a photo to use it here</p>}
-                        {posterBg && <button onClick={() => { setPosterBg(''); setPosterOverlay(null) }} className="mt-1 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">Remove image</button>}
-                        {(posterBg || bgIsImage) && (
-                          <div className="mt-3" title="Photo layer — darker photo, clearer text">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                                <Layers className="w-3 h-3" /> Photo layer
-                              </span>
-                              <span className="text-[10px] text-gray-400">{overlayValue}%</span>
-                            </div>
-                            <input type="range" min={0} max={80} step={5} value={overlayValue}
-                              onChange={e => setPosterOverlay(Number(e.target.value))}
-                              className="w-full min-w-0 accent-orange-500 cursor-pointer" />
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Colours</p>
-                    <p className="text-[10px] text-gray-400 mb-2 leading-snug">Changes the whole poster</p>
-                    <div className="flex flex-col gap-3">
-                      {activeBgMode === 'image' && (
-                        <ColorRow label="Accent" value={color || data.accent} onChange={setColor} onReset={color ? () => setColor('') : undefined} />
-                      )}
-                      <ColorRow label="Heading" value={headingColor || baseDoc?.variables.heading || '#ffffff'} onChange={setHeadingColor} onReset={headingColor ? () => setHeadingColor('') : undefined} />
-                      <ColorRow label="Text" value={textColor || baseDoc?.variables.text || '#ffffff'} onChange={setTextColor} onReset={textColor ? () => setTextColor('') : undefined} />
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
+        {/* ── Global settings (third column) ──── */}
+        <div className="min-[960px]:w-52 min-[960px]:shrink-0 order-3">
+          {activeDoc && (
+            <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-4 min-[960px]:sticky min-[960px]:top-4">
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Size</p>
+                <div className="flex flex-col gap-1.5">
+                  {(Object.keys(POSTER_SIZES) as PosterSizeKey[]).map(k => (
+                    <button key={k} onClick={() => setSize(k)}
+                      className={`rounded-lg border py-2 text-xs font-semibold cursor-pointer transition-colors ${size === k ? 'border-orange-400 text-orange-600 bg-orange-50' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                      {POSTER_SIZES[k].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Background — colour OR image, never both */}
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Background</p>
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-2.5">
+                  {(['colour', 'image'] as const).map(m => (
+                    <button key={m} onClick={() => setBgMode(m)}
+                      className={`flex-1 py-1.5 text-[10px] font-semibold capitalize cursor-pointer transition-colors ${activeBgMode === m ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                {activeBgMode === 'colour' ? (
+                  <ColorRow label="Colour" value={color || data.accent} onChange={setColor} onReset={color ? () => setColor('') : undefined} />
+                ) : (
+                  <>
+                    <label className={`flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-2 py-1.5 text-[11px] font-medium text-gray-600 cursor-pointer hover:border-orange-300 hover:text-orange-600 ${uploadingBg ? 'opacity-50 cursor-wait' : ''}`}>
+                      <ImagePlus className="w-3.5 h-3.5" /> {uploadingBg ? 'Uploading…' : (posterBg || bgIsImage) ? 'Change image' : 'Upload image'}
+                      <input type="file" accept="image/*" className="hidden" disabled={uploadingBg} onChange={handlePosterBgUpload} />
+                    </label>
+                    {!posterBg && bgIsImage && <p className="mt-1 text-[10px] text-gray-400 leading-snug">Using your cover photo</p>}
+                    {!posterBg && !bgIsImage && <p className="mt-1 text-[10px] text-gray-400 leading-snug">Upload a photo to use it here</p>}
+                    {posterBg && <button onClick={() => { setPosterBg(''); setPosterOverlay(null) }} className="mt-1 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">Remove image</button>}
+                    {(posterBg || bgIsImage) && (
+                      <div className="mt-3" title="Photo layer — darker photo, clearer text">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                            <Layers className="w-3 h-3" /> Photo layer
+                          </span>
+                          <span className="text-[10px] text-gray-400">{overlayValue}%</span>
+                        </div>
+                        <input type="range" min={0} max={80} step={5} value={overlayValue}
+                          onChange={e => setPosterOverlay(Number(e.target.value))}
+                          className="w-full min-w-0 accent-orange-500 cursor-pointer" />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Colours</p>
+                <p className="text-[10px] text-gray-400 mb-2 leading-snug">Changes the whole poster</p>
+                <div className="flex flex-col gap-3">
+                  {activeBgMode === 'image' && (
+                    <ColorRow label="Accent" value={color || data.accent} onChange={setColor} onReset={color ? () => setColor('') : undefined} />
+                  )}
+                  <ColorRow label="Heading" value={headingColor || baseDoc?.variables.heading || '#ffffff'} onChange={setHeadingColor} onReset={headingColor ? () => setHeadingColor('') : undefined} />
+                  <ColorRow label="Text" value={textColor || baseDoc?.variables.text || '#ffffff'} onChange={setTextColor} onReset={textColor ? () => setTextColor('') : undefined} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ── Left panel: template picker + (conditional) details ─── */}
-        <div className="min-[960px]:w-96 min-[960px]:shrink-0 order-1 space-y-5">
+        <div className="min-[960px]:w-52 xl:w-80 min-[960px]:shrink-0 order-1 space-y-5">
           <Section title="Template">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 min-[960px]:grid-cols-1 xl:grid-cols-2 gap-2">
               {POSTER_TEMPLATES.map(t => (
                 <button key={t.id} onClick={() => { setTemplate(t.id); setSelectedIds([]); setSelectedId(null); setElFx({}); setElText({}); setElImg({}); setPosterBg(''); setPosterOverlay(null); setBgMode(null) }}
                   className={`rounded-xl border-2 p-3 text-left transition-all cursor-pointer ${template === t.id ? 'border-orange-400 bg-orange-50' : 'border-gray-100 hover:border-gray-300'}`}>
