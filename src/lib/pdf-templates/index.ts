@@ -5,6 +5,7 @@ import { pdf3Config, getPdf3HTML } from './template3'
 import { pdf4Config, getPdf4HTML } from './template4'
 import { pdf5Config, getPdf5HTML } from './template5'
 import { pdf6Config, getPdf6HTML } from './template6'
+import { pdf7Config, getPdf7HTML } from './template7'
 
 export interface PdfTemplateConfig {
   id: string
@@ -27,6 +28,7 @@ export const PDF_TEMPLATES: PdfTemplateConfig[] = [
   { ...pdf4Config, hasImage: false },
   { ...pdf5Config, hasImage: true  },
   { ...pdf6Config, hasImage: false },
+  { ...pdf7Config, hasImage: false },
 ]
 
 export function getPdfHTML(
@@ -42,6 +44,7 @@ export function getPdfHTML(
     case 'pdf4': return getPdf4HTML(categories, items, restaurantName, options)
     case 'pdf5': return getPdf5HTML(categories, items, restaurantName, options)
     case 'pdf6': return getPdf6HTML(categories, items, restaurantName, options)
+    case 'pdf7': return getPdf7HTML(categories, items, restaurantName, options)
     default:     return getPdf1HTML(categories, items, restaurantName, options)
   }
 }
