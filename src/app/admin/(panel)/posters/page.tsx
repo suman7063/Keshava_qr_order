@@ -369,7 +369,8 @@ export default function PostersPage() {
         <p className="text-gray-500 text-sm">Generate print-ready marketing posters for your light box — one click.</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      {/* Side-by-side layout holds down to 960px so ~1020px screens keep it */}
+      <div className="flex flex-col min-[960px]:flex-row gap-6">
         {/* ── Preview (right, large, always visible) ──── */}
         <div className="flex-1 order-2">
           <div className="bg-gray-50 rounded-2xl border border-gray-100 p-6 relative">
@@ -590,7 +591,7 @@ export default function PostersPage() {
         </div>
 
         {/* ── Left panel: template picker + (conditional) details ─── */}
-        <div className="lg:w-96 lg:shrink-0 order-1 space-y-5">
+        <div className="min-[960px]:w-96 min-[960px]:shrink-0 order-1 space-y-5">
           <Section title="Template">
             <div className="grid grid-cols-2 gap-2">
               {POSTER_TEMPLATES.map(t => (
