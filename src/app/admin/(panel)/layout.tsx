@@ -53,7 +53,9 @@ function SidebarContent({ restaurantName, pathname, onNavigate, onLogout }: {
           )
         })}
       </nav>
-      <div className="p-3 border-t border-gray-100">
+      {/* h-16 matches page bottom bars (e.g. the menu pager) so the two
+          bottom strips align into one line */}
+      <div className="h-16 shrink-0 flex items-center px-3 border-t border-gray-100">
         <button onClick={onLogout}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors">
           <LogOut className="w-4 h-4" /> Logout
