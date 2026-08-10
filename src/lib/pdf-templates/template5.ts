@@ -4,8 +4,6 @@ interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: stri
 
 export const pdf5Config = { id: 'pdf5', label: 'Dark Street', preview: '#111111' }
 
-const DEFAULT_FOOD_IMG = 'https://images.unsplash.com/photo-1544025162-d76538d31203?w=600&q=80&auto=format&fit=crop'
-
 export function getPdf5HTML(categories: MenuCategory[], items: MenuItem[], restaurantName: string, options: PdfOptions = {}) {
   const grouped = categories.map(cat => ({
     cat,
@@ -13,21 +11,11 @@ export function getPdf5HTML(categories: MenuCategory[], items: MenuItem[], resta
     img: items.find(i => i.category_id === cat.id && i.image_url)?.image_url || '',
   })).filter(g => g.items.length > 0)
 
-  const heroImg = options.heroImage || items.find(i => i.image_url)?.image_url || DEFAULT_FOOD_IMG
-
   return `<html><head><title>${restaurantName} — Menu</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:Arial,sans-serif;background:${options.bgColor || '#111'};color:#fff;min-height:100vh;}
-    .page{display:grid;grid-template-columns:200px 1fr;min-height:800px;}
-    .left-img{
-      background:url('${heroImg}') center/cover no-repeat;
-      position:relative;
-    }
-    .left-img::after{
-      content:'';position:absolute;inset:0;
-      background:linear-gradient(to right,transparent 70%,${options.bgColor || '#111'} 100%);
-    }
+    .page{min-height:800px;max-width:760px;margin:0 auto;}
     .right{padding:32px 36px;position:relative;background:${options.bgColor || '#111'};}
     .paint-stroke{
       position:absolute;top:0;right:0;
@@ -59,7 +47,6 @@ export function getPdf5HTML(categories: MenuCategory[], items: MenuItem[], resta
   </style></head>
   <body>
     <div class="page">
-      <div class="left-img"></div>
       <div class="right">
         <div class="paint-stroke"></div>
         <div class="title-wrap">

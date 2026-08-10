@@ -26,7 +26,7 @@ export const PDF_TEMPLATES: PdfTemplateConfig[] = [
   { ...pdf2Config, hasImage: false },
   { ...pdf3Config, hasImage: false },
   { ...pdf4Config, hasImage: false },
-  { ...pdf5Config, hasImage: true  },
+  { ...pdf5Config, hasImage: false },
   { ...pdf6Config, hasImage: false },
   { ...pdf7Config, hasImage: false },
 ]
