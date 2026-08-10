@@ -8,6 +8,7 @@ import { pdf6Config, getPdf6HTML } from './template6'
 import { pdf7Config, getPdf7HTML } from './template7'
 import { pdf8Config, getPdf8HTML } from './template8'
 import { pdf9Config, getPdf9HTML } from './template9'
+import { pdf10Config, getPdf10HTML } from './template10'
 
 export interface PdfTemplateConfig {
   id: string
@@ -38,11 +39,11 @@ export interface PdfOptions {
 // owner's overrides without touching every template's own CSS.
 const TITLE_SEL: Record<string, string> = {
   pdf1: 'h1', pdf2: '.menu-title', pdf3: '.menu-title', pdf4: '.rest-name',
-  pdf5: '.title-menu', pdf6: '.title', pdf7: '.title', pdf8: '.rest', pdf9: '.rest',
+  pdf5: '.title-menu', pdf6: '.title', pdf7: '.title', pdf8: '.rest', pdf9: '.rest', pdf10: '.rest-small',
 }
 const PRICE_SEL: Record<string, string> = {
   pdf1: '.price', pdf2: '.price', pdf3: '.price', pdf4: '.price', pdf5: '.price',
-  pdf6: '.price', pdf7: '.price', pdf8: '.card-price', pdf9: '.card-price',
+  pdf6: '.price', pdf7: '.price', pdf8: '.card-price', pdf9: '.card-price', pdf10: '.price',
 }
 
 function overrideStyles(templateId: string, o: PdfOptions): string {
@@ -73,6 +74,7 @@ export const PDF_TEMPLATES: PdfTemplateConfig[] = [
   { ...pdf7Config, hasImage: false },
   { ...pdf8Config, hasImage: false },
   { ...pdf9Config, hasImage: false },
+  { ...pdf10Config, hasImage: false },
 ]
 
 export function getPdfHTML(
@@ -103,6 +105,7 @@ function baseHTML(
     case 'pdf7': return getPdf7HTML(categories, items, restaurantName, options)
     case 'pdf8': return getPdf8HTML(categories, items, restaurantName, options)
     case 'pdf9': return getPdf9HTML(categories, items, restaurantName, options)
+    case 'pdf10': return getPdf10HTML(categories, items, restaurantName, options)
     default:     return getPdf1HTML(categories, items, restaurantName, options)
   }
 }
