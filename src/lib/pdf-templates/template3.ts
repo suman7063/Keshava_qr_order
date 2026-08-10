@@ -1,6 +1,6 @@
 import type { MenuItem, MenuCategory } from '@/types'
 
-interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string }
+interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string; titleText?: string }
 
 export const pdf3Config = { id: 'pdf3', label: 'Wavy Green', preview: '#f0faf0' }
 
@@ -50,7 +50,7 @@ export function getPdf3HTML(categories: MenuCategory[], items: MenuItem[], resta
         <path d="${wavyPath}" fill="none" stroke="${options.textColor || '#2d6a2d'}" stroke-width="2.5"/>
       </svg>
       <div class="content">
-        <div class="menu-title">Menu</div>
+        <div class="menu-title">${options.titleText || 'Menu'}</div>
         ${grouped.map(({ cat, items: ci }) => `
           <div class="category">
             <div class="cat-title">${cat.name}</div>

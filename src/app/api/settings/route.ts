@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getReadRestaurantId } from '@/lib/restaurant'
 import { requireStaff } from '@/lib/auth'
@@ -39,12 +40,24 @@ export async function PATCH(request: Request) {
   if (body.otp_mode === 'customer' || body.otp_mode === 'manager') updates.otp_mode = body.otp_mode
   const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() && v.length <= max ? v : undefined)
   if (body.menu_pdf && typeof body.menu_pdf === 'object' && !Array.isArray(body.menu_pdf)) {
+    const mp = body.menu_pdf
+    const num = (v: unknown, min: number, max: number) => (typeof v === 'number' && v >= min && v <= max ? v : undefined)
+    const bool = (v: unknown) => (v === true ? true : undefined)
     updates.menu_pdf = {
-      template: str(body.menu_pdf.template, 20) || 'pdf1',
-      bgColor: str(body.menu_pdf.bgColor, 30),
-      textColor: str(body.menu_pdf.textColor, 30),
-      subTextColor: str(body.menu_pdf.subTextColor, 30),
-      heroImage: str(body.menu_pdf.heroImage, 1000),
+      template: str(mp.template, 20) || 'pdf1',
+      bgColor: str(mp.bgColor, 30),
+      textColor: str(mp.textColor, 30),
+      subTextColor: str(mp.subTextColor, 30),
+      heroImage: str(mp.heroImage, 1000),
+      titleText: str(mp.titleText, 100),
+      titleColor: str(mp.titleColor, 30),
+      titleSize: num(mp.titleSize, 10, 120),
+      titleBold: bool(mp.titleBold),
+      titleItalic: bool(mp.titleItalic),
+      priceColor: str(mp.priceColor, 30),
+      priceSize: num(mp.priceSize, 6, 60),
+      priceBold: bool(mp.priceBold),
+      priceItalic: bool(mp.priceItalic),
     }
   }
   // Menu QR card design — same shape the table QR editor saves
@@ -73,5 +86,14 @@ export async function PATCH(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // A saved Menu QR style must show on the very next scan — drop the cached
+  // /menu-card page instead of waiting out its revalidate window.
+  if (updates.menu_pdf || updates.menu_qr) {
+    const { data: rest } = await ctx.db
+      .from('restaurants').select('subdomain').eq('id', ctx.restaurantId).single()
+    if (rest?.subdomain) revalidatePath(`/${rest.subdomain}/menu-card`)
+  }
+
   return NextResponse.json(data)
 }

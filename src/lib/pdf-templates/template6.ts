@@ -1,6 +1,6 @@
 import type { MenuItem, MenuCategory } from '@/types'
 
-interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string }
+interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string; titleText?: string }
 
 // Pocket price-list, modelled on the Sagars reference: warm cream page,
 // dark-brown rounded section bars, orange letter-spaced subcategory
@@ -80,7 +80,7 @@ export function getPdf6HTML(categories: MenuCategory[], items: MenuItem[], resta
   </style></head>
   <body>
     <div class="header">
-      <div class="title">${restaurantName} — Price List</div>
+      <div class="title">${options.titleText || `${restaurantName} — Price List`}</div>
       <div class="tagline">Authentic Flavors <b>•</b> Fresh Ingredients <b>•</b> Made with Love</div>
     </div>
     <div class="columns">${renderGroup(grouped)}</div>

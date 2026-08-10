@@ -1,6 +1,6 @@
 import type { MenuItem, MenuCategory } from '@/types'
 
-interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string }
+interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string; titleText?: string }
 
 // Café price list — same warm palette as the Pocket Price List, but each
 // category gets a FULL-WIDTH brown bar with its own two-column item flow
@@ -93,7 +93,7 @@ export function getPdf7HTML(categories: MenuCategory[], items: MenuItem[], resta
   </style></head>
   <body>
     <div class="header">
-      <div class="title">${restaurantName} — Price List</div>
+      <div class="title">${options.titleText || `${restaurantName} — Price List`}</div>
       <div class="tagline">Authentic Flavors <b>•</b> Fresh Ingredients <b>•</b> Made with Love</div>
     </div>
     ${grouped.map(renderCategory).join('')}

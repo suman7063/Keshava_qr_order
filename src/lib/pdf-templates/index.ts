@@ -21,6 +21,46 @@ export interface PdfOptions {
   textColor?: string
   subTextColor?: string
   heroImage?: string
+  // Main heading (the big "Menu" / restaurant title) overrides
+  titleText?: string
+  titleColor?: string
+  titleSize?: number   // px; unset = template default
+  titleBold?: boolean
+  titleItalic?: boolean
+  // Price overrides
+  priceColor?: string
+  priceSize?: number   // px; unset = template default
+  priceBold?: boolean
+  priceItalic?: boolean
+}
+
+// Where each template's main heading / price lives — used to inject the
+// owner's overrides without touching every template's own CSS.
+const TITLE_SEL: Record<string, string> = {
+  pdf1: 'h1', pdf2: '.menu-title', pdf3: '.menu-title', pdf4: '.rest-name',
+  pdf5: '.title-menu', pdf6: '.title', pdf7: '.title', pdf8: '.rest', pdf9: '.rest',
+}
+const PRICE_SEL: Record<string, string> = {
+  pdf1: '.price', pdf2: '.price', pdf3: '.price', pdf4: '.price', pdf5: '.price',
+  pdf6: '.price', pdf7: '.price', pdf8: '.card-price', pdf9: '.card-price',
+}
+
+function overrideStyles(templateId: string, o: PdfOptions): string {
+  const title: string[] = []
+  if (o.titleColor) title.push(`color:${o.titleColor} !important`)
+  if (o.titleSize) title.push(`font-size:${o.titleSize}px !important`)
+  if (o.titleBold) title.push('font-weight:900 !important')
+  if (o.titleItalic) title.push('font-style:italic !important')
+  const price: string[] = []
+  if (o.priceColor) price.push(`color:${o.priceColor} !important`)
+  if (o.priceSize) price.push(`font-size:${o.priceSize}px !important`)
+  if (o.priceBold) price.push('font-weight:900 !important')
+  if (o.priceItalic) price.push('font-style:italic !important')
+  if (!title.length && !price.length) return ''
+  const css =
+    (title.length ? `${TITLE_SEL[templateId] ?? 'h1'}{${title.join(';')}}` : '') +
+    (price.length ? `${PRICE_SEL[templateId] ?? '.price'}{${price.join(';')}}` : '')
+  return `<style>${css}</style>`
 }
 
 export const PDF_TEMPLATES: PdfTemplateConfig[] = [
@@ -41,6 +81,18 @@ export function getPdfHTML(
   items: MenuItem[],
   restaurantName: string,
   options: PdfOptions = {}
+): string {
+  const html = baseHTML(templateId, categories, items, restaurantName, options)
+  const ov = overrideStyles(templateId, options)
+  return ov ? html.replace('</head>', `${ov}</head>`) : html
+}
+
+function baseHTML(
+  templateId: string,
+  categories: MenuCategory[],
+  items: MenuItem[],
+  restaurantName: string,
+  options: PdfOptions
 ): string {
   switch (templateId) {
     case 'pdf2': return getPdf2HTML(categories, items, restaurantName, options)

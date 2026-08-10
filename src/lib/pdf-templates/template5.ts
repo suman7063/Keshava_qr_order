@@ -1,6 +1,6 @@
 import type { MenuItem, MenuCategory } from '@/types'
 
-interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string }
+interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string; titleText?: string }
 
 export const pdf5Config = { id: 'pdf5', label: 'Dark Street', preview: '#111111' }
 
@@ -51,7 +51,7 @@ export function getPdf5HTML(categories: MenuCategory[], items: MenuItem[], resta
         <div class="paint-stroke"></div>
         <div class="title-wrap">
           <div class="title-food">Food</div>
-          <div class="title-menu">Menu</div>
+          <div class="title-menu">${options.titleText || 'Menu'}</div>
           <div class="divider"></div>
         </div>
         ${grouped.map(({ cat, items: ci, img }, idx) => `

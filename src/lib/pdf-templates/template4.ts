@@ -1,6 +1,6 @@
 import type { MenuItem, MenuCategory } from '@/types'
 
-interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string }
+interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string; titleText?: string }
 
 export const pdf4Config = { id: 'pdf4', label: 'Rustic Wood', preview: '#5c3010' }
 
@@ -71,7 +71,7 @@ export function getPdf4HTML(categories: MenuCategory[], items: MenuItem[], resta
     <div class="paper">
       <div class="deco" style="top:60px;right:20px;transform:rotate(15deg)">🍕</div>
       <div class="deco" style="bottom:80px;left:10px;transform:rotate(-10deg)">🍔</div>
-      <div class="rest-name">${restaurantName}</div>
+      <div class="rest-name">${options.titleText || restaurantName}</div>
       <div class="rest-sub">Restaurant</div>
       ${grouped.map(({ cat, items: ci }) => `
         <div class="category">

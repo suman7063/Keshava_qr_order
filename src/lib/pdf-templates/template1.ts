@@ -1,6 +1,6 @@
 import type { MenuItem, MenuCategory } from '@/types'
 
-interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string }
+interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string; titleText?: string }
 
 export const pdf1Config = { id: 'pdf1', label: 'Classic White', preview: '#ffffff' }
 
@@ -27,7 +27,7 @@ export function getPdf1HTML(categories: MenuCategory[], items: MenuItem[], resta
     @media print{@page{margin:15mm;size:A4;}body{padding:0;}}
   </style></head>
   <body>
-    <h1>${restaurantName}</h1>
+    <h1>${options.titleText || restaurantName}</h1>
     <p class="sub">Menu</p>
     ${grouped.map(({ cat, items: ci }) => `
       <div class="category">

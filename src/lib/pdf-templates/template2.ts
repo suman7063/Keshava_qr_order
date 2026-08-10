@@ -1,6 +1,6 @@
 import type { MenuItem, MenuCategory } from '@/types'
 
-interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string }
+interface PdfOptions { bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string; titleText?: string }
 
 export const pdf2Config = { id: 'pdf2', label: 'Dark Elegant', preview: '#111111' }
 
@@ -44,7 +44,7 @@ export function getPdf2HTML(categories: MenuCategory[], items: MenuItem[], resta
   </style></head>
   <body>
     <div class="header">
-      <div class="menu-title">Menu</div>
+      <div class="menu-title">${options.titleText || 'Menu'}</div>
       <div class="rest-name">${restaurantName}</div>
     </div>
     <div class="columns">

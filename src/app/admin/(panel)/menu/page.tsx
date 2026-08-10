@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Download, ChefHat, Upload, FileSpreadsheet, Maximize2, X, QrCode, Check, LayoutTemplate } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download, ChefHat, Upload, FileSpreadsheet, Maximize2, X, QrCode, Check, LayoutTemplate, Monitor, Smartphone } from 'lucide-react'
 import Link from 'next/link'
 import { parseCSV } from '@/lib/csv'
 import { VegMark } from '@/components/ui/VegMark'
@@ -48,7 +48,18 @@ export default function MenuPage() {
   const [pdfTextColor, setPdfTextColor] = useState('')
   const [pdfSubTextColor, setPdfSubTextColor] = useState('')
   const [pdfHeroImage, setPdfHeroImage] = useState('')
+  // Main heading + price overrides (0 / '' / false = template default)
+  const [pdfTitleText, setPdfTitleText] = useState('')
+  const [pdfTitleColor, setPdfTitleColor] = useState('')
+  const [pdfTitleSize, setPdfTitleSize] = useState(0)
+  const [pdfTitleBold, setPdfTitleBold] = useState(false)
+  const [pdfTitleItalic, setPdfTitleItalic] = useState(false)
+  const [pdfPriceColor, setPdfPriceColor] = useState('')
+  const [pdfPriceSize, setPdfPriceSize] = useState(0)
+  const [pdfPriceBold, setPdfPriceBold] = useState(false)
+  const [pdfPriceItalic, setPdfPriceItalic] = useState(false)
   const [showFullPreview, setShowFullPreview] = useState(false)
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop')
   const [restaurantName, setRestaurantName] = useState('Our Restaurant')
   const [restaurantSub, setRestaurantSub] = useState('')
   const [showMenuQr, setShowMenuQr] = useState(false)
@@ -72,6 +83,22 @@ export default function MenuPage() {
     is_vegetarian: false, is_vegan: false, is_available: true, prep_time_minutes: '',
     image_url: '',
   })
+
+  const pdfOptions = {
+    bgColor: pdfBgColor || undefined,
+    textColor: pdfTextColor || undefined,
+    subTextColor: pdfSubTextColor || undefined,
+    heroImage: pdfHeroImage || undefined,
+    titleText: pdfTitleText || undefined,
+    titleColor: pdfTitleColor || undefined,
+    titleSize: pdfTitleSize || undefined,
+    titleBold: pdfTitleBold || undefined,
+    titleItalic: pdfTitleItalic || undefined,
+    priceColor: pdfPriceColor || undefined,
+    priceSize: pdfPriceSize || undefined,
+    priceBold: pdfPriceBold || undefined,
+    priceItalic: pdfPriceItalic || undefined,
+  }
 
   const { openCrop, cropModal, uploading: uploadingImg } = useCropUpload('menu-items')
 
@@ -111,6 +138,15 @@ export default function MenuPage() {
         setPdfTextColor(mp.textColor || '')
         setPdfSubTextColor(mp.subTextColor || '')
         setPdfHeroImage(mp.heroImage || '')
+        setPdfTitleText(mp.titleText || '')
+        setPdfTitleColor(mp.titleColor || '')
+        setPdfTitleSize(mp.titleSize || 0)
+        setPdfTitleBold(!!mp.titleBold)
+        setPdfTitleItalic(!!mp.titleItalic)
+        setPdfPriceColor(mp.priceColor || '')
+        setPdfPriceSize(mp.priceSize || 0)
+        setPdfPriceBold(!!mp.priceBold)
+        setPdfPriceItalic(!!mp.priceItalic)
       }
       if (settings.menu_qr) setMenuQrSettings(settings.menu_qr)
       if (restaurant?.name) setRestaurantName(restaurant.name)
@@ -291,12 +327,7 @@ export default function MenuPage() {
   function exportPDF() {
     if (!pdfLib) return
     const availableItems = items.filter(i => i.is_available)
-    const html = pdfLib.getPdfHTML(pdfTemplateId, categories, availableItems, restaurantName, {
-      bgColor: pdfBgColor || undefined,
-      textColor: pdfTextColor || undefined,
-      subTextColor: pdfSubTextColor || undefined,
-      heroImage: pdfHeroImage || undefined,
-    })
+    const html = pdfLib.getPdfHTML(pdfTemplateId, categories, availableItems, restaurantName, pdfOptions)
     const win = window.open('', '_blank', 'width=820,height=1000')
     if (!win) return
     win.document.write(html)
@@ -318,13 +349,7 @@ export default function MenuPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        menu_pdf: {
-          template: pdfTemplateId,
-          bgColor: pdfBgColor || undefined,
-          textColor: pdfTextColor || undefined,
-          subTextColor: pdfSubTextColor || undefined,
-          heroImage: pdfHeroImage || undefined,
-        },
+        menu_pdf: { template: pdfTemplateId, ...pdfOptions },
       }),
     })
     if (res.ok) {
@@ -454,12 +479,7 @@ export default function MenuPage() {
   // The real thing: full menu in the selected template + colours — used by
   // the inline preview and the expanded preview modal, and it IS the download.
   const fullPdfHtml = pdfLib
-    ? pdfLib.getPdfHTML(pdfTemplateId, categories, items.filter(i => i.is_available), restaurantName, {
-        bgColor: pdfBgColor || undefined,
-        textColor: pdfTextColor || undefined,
-        subTextColor: pdfSubTextColor || undefined,
-        heroImage: pdfHeroImage || undefined,
-      })
+    ? pdfLib.getPdfHTML(pdfTemplateId, categories, items.filter(i => i.is_available), restaurantName, pdfOptions)
     : ''
 
   return (
@@ -483,21 +503,16 @@ export default function MenuPage() {
             className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
             <Upload className="w-4 h-4" /> Import Menu
           </button>
-          {/* Export buttons */}
-          <div className="flex items-center gap-1 border border-gray-200 rounded-xl overflow-hidden">
-            <button onClick={exportCSV}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors border-r border-gray-200">
-              <Download className="w-4 h-4" /> CSV
-            </button>
-            <button onClick={openPdfModal}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors">
-              <Download className="w-4 h-4" /> PDF
-            </button>
-          </div>
-          {/* Pick the style customers see after scanning the Menu QR */}
+          {/* Export CSV */}
+          <button onClick={exportCSV}
+            className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
+            <Download className="w-4 h-4" /> CSV
+          </button>
+          {/* One place for the menu's look: PDF download for the owner AND
+              the style customers see after scanning the Menu QR */}
           <button onClick={openPdfModal}
             className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
-            <LayoutTemplate className="w-4 h-4" /> Menu Style
+            <LayoutTemplate className="w-4 h-4" /> Menu Design
           </button>
           {/* View-only menu QR — scan shows the saved PDF template */}
           <button onClick={openMenuQr}
@@ -662,7 +677,7 @@ export default function MenuPage() {
       {/* Pagination — sticky at the bottom of the viewport so it's always
           reachable without scrolling past the whole page of items */}
       {filteredItems.length > PAGE_SIZE && (
-        <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-8 px-4 lg:px-8 py-3 mt-4 bg-gray-50/95 backdrop-blur border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
+        <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-8 -mb-4 lg:-mb-8 px-4 lg:px-8 min-h-16 mt-4 bg-gray-50/95 backdrop-blur border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
           <p className="text-xs text-gray-400">
             Showing {(curPage - 1) * PAGE_SIZE + 1}–{Math.min(curPage * PAGE_SIZE, filteredItems.length)} of {filteredItems.length} items
           </p>
@@ -926,7 +941,7 @@ export default function MenuPage() {
       </Modal>
 
       {/* PDF Template Picker Modal */}
-      <Modal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} title="Choose PDF Template" size="lg">
+      <Modal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} title="Menu Design" size="lg">
         <div className="space-y-4">
           {/* Box 1 — templates. Tapping one opens the settings drawer. */}
           <div className="border border-gray-100 rounded-2xl p-4">
@@ -939,12 +954,7 @@ export default function MenuPage() {
                 pdfPreviewCats,
                 pdfPreviewItems,
                 restaurantName,
-                isSelected ? {
-                  bgColor: pdfBgColor || undefined,
-                  textColor: pdfTextColor || undefined,
-                  subTextColor: pdfSubTextColor || undefined,
-                  heroImage: pdfHeroImage || undefined,
-                } : {}
+                isSelected ? pdfOptions : {}
               )
               return (
                 <button key={t.id} onClick={() => { setPdfTemplateId(t.id); setShowPdfSettings(true) }}
@@ -1025,7 +1035,74 @@ export default function MenuPage() {
                     className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
                 </div>
               </div>
-              {/* Hero image — only for templates with image */}
+              {/* Main heading — text, colour, size, style */}
+            <div className="pt-3 border-t border-gray-100 space-y-3">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Main Heading</p>
+              <input value={pdfTitleText} onChange={e => setPdfTitleText(e.target.value)} maxLength={100}
+                placeholder="Your own heading (e.g. Menu)"
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-400" />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-500">Colour</span>
+                <div className="flex items-center gap-2">
+                  {pdfTitleColor && <button onClick={() => setPdfTitleColor('')} className="text-[10px] text-gray-400 hover:text-red-400 cursor-pointer">Reset</button>}
+                  <input type="color" value={pdfTitleColor || '#333333'}
+                    onChange={e => setPdfTitleColor(e.target.value)}
+                    className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-500">Size</span>
+                <div className="flex rounded-md border border-gray-200 overflow-hidden">
+                  {([['Auto', 0], ['S', 24], ['M', 32], ['L', 44], ['XL', 56]] as [string, number][]).map(([lbl, px]) => (
+                    <button key={lbl} onClick={() => setPdfTitleSize(px)}
+                      className={`px-2 py-1 text-[11px] font-semibold cursor-pointer ${pdfTitleSize === px ? 'bg-orange-100 text-orange-600' : 'text-gray-500 hover:bg-gray-50'}`}>{lbl}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-500">Style</span>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setPdfTitleBold(v => !v)} title="Bold"
+                    className={`w-7 h-7 rounded-md border text-xs font-black cursor-pointer ${pdfTitleBold ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>B</button>
+                  <button onClick={() => setPdfTitleItalic(v => !v)} title="Italic"
+                    className={`w-7 h-7 rounded-md border text-xs italic font-semibold cursor-pointer ${pdfTitleItalic ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>I</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Price — colour, size, style */}
+            <div className="pt-3 border-t border-gray-100 space-y-3">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Price</p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-500">Colour</span>
+                <div className="flex items-center gap-2">
+                  {pdfPriceColor && <button onClick={() => setPdfPriceColor('')} className="text-[10px] text-gray-400 hover:text-red-400 cursor-pointer">Reset</button>}
+                  <input type="color" value={pdfPriceColor || '#333333'}
+                    onChange={e => setPdfPriceColor(e.target.value)}
+                    className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-500">Size</span>
+                <div className="flex rounded-md border border-gray-200 overflow-hidden">
+                  {([['Auto', 0], ['S', 11], ['M', 13], ['L', 16], ['XL', 20]] as [string, number][]).map(([lbl, px]) => (
+                    <button key={lbl} onClick={() => setPdfPriceSize(px)}
+                      className={`px-2 py-1 text-[11px] font-semibold cursor-pointer ${pdfPriceSize === px ? 'bg-orange-100 text-orange-600' : 'text-gray-500 hover:bg-gray-50'}`}>{lbl}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-500">Style</span>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setPdfPriceBold(v => !v)} title="Bold"
+                    className={`w-7 h-7 rounded-md border text-xs font-black cursor-pointer ${pdfPriceBold ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>B</button>
+                  <button onClick={() => setPdfPriceItalic(v => !v)} title="Italic"
+                    className={`w-7 h-7 rounded-md border text-xs italic font-semibold cursor-pointer ${pdfPriceItalic ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>I</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Hero image — only for templates with image */}
               {pdfLib?.PDF_TEMPLATES.find(t => t.id === pdfTemplateId)?.hasImage && (
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-gray-500">Hero Image</span>
@@ -1075,7 +1152,7 @@ export default function MenuPage() {
           qrUrl={menuCardUrl}
           initial={menuQrSettings}
           defaultSubtext="Scan to see our menu"
-          note="Scanning this shows a view-only menu (no ordering) in the style set under Menu Style."
+          note="Scanning this shows a view-only menu (no ordering) in the style set under Menu Design."
           onSave={async s => {
             const res = await fetch('/api/settings', {
               method: 'PATCH',
@@ -1094,10 +1171,19 @@ export default function MenuPage() {
           onClick={() => setShowFullPreview(false)}>
           <div className="relative bg-white rounded-2xl w-full max-w-4xl h-[92vh] flex flex-col overflow-hidden shadow-2xl"
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+            <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100 shrink-0 flex-wrap">
               <p className="font-semibold text-gray-900">
                 Menu preview — {pdfLib?.PDF_TEMPLATES.find(t => t.id === pdfTemplateId)?.label}
               </p>
+              {/* Desktop / Mobile — how the menu looks on a laptop vs after a phone scan */}
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                {([['desktop', Monitor, 'Desktop'], ['mobile', Smartphone, 'Mobile']] as const).map(([mode, Icon, label]) => (
+                  <button key={mode} onClick={() => setPreviewDevice(mode)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors ${previewDevice === mode ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    <Icon className="w-3.5 h-3.5" /> {label}
+                  </button>
+                ))}
+              </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => { setShowFullPreview(false); exportPDF() }}
                   className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors">
@@ -1109,7 +1195,18 @@ export default function MenuPage() {
                 </button>
               </div>
             </div>
-            <iframe title="Expanded menu preview" srcDoc={fullPdfHtml} className="w-full flex-1 bg-white" />
+            {previewDevice === 'desktop' ? (
+              <iframe title="Expanded menu preview" srcDoc={fullPdfHtml} className="w-full flex-1 bg-white" />
+            ) : (
+              <div className="flex-1 bg-gray-100 flex justify-center items-stretch overflow-hidden p-4">
+                <div className="rounded-4xl border-6 border-gray-800 shadow-2xl overflow-hidden bg-white" style={{ width: 384 }}>
+                  {/* same shrink the scanned /menu-card page applies on phones */}
+                  <iframe title="Mobile menu preview"
+                    srcDoc={fullPdfHtml.replace('</head>', '<style>@media (max-width:640px){body{zoom:0.75;}}</style></head>')}
+                    className="w-full h-full bg-white" />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
