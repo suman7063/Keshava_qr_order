@@ -38,7 +38,7 @@ function SidebarContent({ restaurantName, pathname, onNavigate, onLogout }: {
           </div>
         </div>
       </div>
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navItems.map(item => {
           const active = pathname === item.href
           return (
@@ -84,10 +84,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen overflow-hidden bg-gray-50 flex">
 
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-60 bg-white border-r border-gray-100 shadow-sm flex-col shrink-0">
+      {/* Desktop sidebar — the shell is viewport-height and only <main>
+          scrolls, so the sidebar (and its Logout) can never move */}
+      <aside className="hidden lg:flex w-60 bg-white border-r border-gray-100 shadow-sm flex-col shrink-0 h-full">
         <SidebarContent restaurantName={restaurantName} pathname={pathname} onNavigate={() => setSidebarOpen(false)} onLogout={handleLogout} />
       </aside>
 
@@ -116,7 +117,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto">
           <div className="p-4 lg:p-8">{children}</div>
         </main>
       </div>
