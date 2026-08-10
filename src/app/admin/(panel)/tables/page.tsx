@@ -1,15 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { RestaurantTable, TableStatus, QRTemplate } from '@/types'
+import { RestaurantTable, TableStatus } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
-import { QrCode, Plus, Trash2, Download, Pencil, ClipboardList, Copy, Check, Palette, Type, ImageIcon, Layers } from 'lucide-react'
-import QRCode from 'qrcode'
+import { QrCode, Plus, Trash2, Pencil, ClipboardList, Copy, Check } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import { useCropUpload } from '@/components/ui/useCropUpload'
+import { QRCardEditorModal } from '@/components/qr/QRCardEditorModal'
 
 interface OrderItem { id: string; quantity: number; total_price: number; menu_item?: { name: string } }
 interface TableOrder { id: string; customer_name?: string; status: string; total_amount: number; created_at: string; items?: OrderItem[] }
@@ -38,64 +37,12 @@ export default function TablesPage() {
   const [addError, setAddError] = useState('')
   const [editTable, setEditTable] = useState<RestaurantTable | null>(null)
   const [qrModal, setQrModal] = useState<RestaurantTable | null>(null)
-  const [qrDataUrl, setQrDataUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ table_number: '', capacity: 4 })
   const [editForm, setEditForm] = useState<{ table_number: string; capacity: number; status: TableStatus }>({ table_number: '', capacity: 4, status: 'available' })
   const [detailTable, setDetailTable] = useState<RestaurantTable | null>(null)
   const [detailOrders, setDetailOrders] = useState<TableOrder[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
-  const DEFAULT_CARD_IMAGE = '' // no external default — show a clean gradient until the owner adds a photo
-  const [cardImage, setCardImage] = useState(DEFAULT_CARD_IMAGE)
-  const [cardTemplate, setCardTemplate] = useState<QRTemplate>('classic')
-  const [cardBgColor, setCardBgColor] = useState('')
-  const [cardBgImage, setCardBgImage] = useState('')
-  const [cardTextColor, setCardTextColor] = useState('')
-  const [cardOverlay, setCardOverlay] = useState(0)
-  const [cardHeading, setCardHeading] = useState('')
-  const [cardSubtext, setCardSubtext] = useState('')
-  const [cardLabel, setCardLabel] = useState('')
-  const [editingField, setEditingField] = useState<'heading' | 'subtext' | 'label' | null>(null)
-  const [savingCard, setSavingCard] = useState(false)
-  const { openCrop, cropModal, uploading } = useCropUpload('qr-card')
-  const [qrLib, setQrLib] = useState<typeof import('@/lib/qr-templates') | null>(null)
-
-  const DEFAULT_TEXTS: Record<QRTemplate, { heading: string; subtext: string; label: string }> = {
-    classic:   { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
-    minimal:   { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
-    template3: { heading: 'SCAN HERE', subtext: 'To see our menu',  label: ''               },
-    template4: { heading: 'MENU',      subtext: 'Scan to view our', label: ''               },
-    template5: { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
-    template6: { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
-    template7: { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
-    template8: { heading: 'MENU',      subtext: 'Scan to Order',    label: 'Digital'        },
-  }
-
-  const IFRAME_TEMPLATES = ['template5', 'template6', 'template7', 'template8']
-
-  function handleCardImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) openCrop(file, 4 / 3, url => setCardImage(url))
-    e.target.value = ''
-  }
-
-  function handleBgImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) openCrop(file, 330 / 460, url => { setCardBgImage(url); setCardBgColor('') })
-    e.target.value = ''
-  }
-
-  async function saveCardSettings() {
-    if (!qrModal) return
-    setSavingCard(true)
-    await fetch(`/api/tables/${qrModal.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ card_image: cardImage, card_template: cardTemplate, card_bg_color: cardBgColor || null, card_bg_image: cardBgImage || null, card_text_color: cardTextColor || null, card_heading: cardHeading || null, card_subtext: cardSubtext || null, card_label: cardLabel || null, card_overlay: cardOverlay }),
-    })
-    fetchTables()
-    setSavingCard(false)
-  }
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   function copyUrl(tableId: string) {
@@ -173,34 +120,8 @@ export default function TablesPage() {
     fetchTables()
   }
 
-  async function showQR(table: RestaurantTable) {
-    if (!qrLib) setQrLib(await import('@/lib/qr-templates'))
+  function showQR(table: RestaurantTable) {
     setQrModal(table)
-    setCardImage(table.card_image || DEFAULT_CARD_IMAGE)
-    setCardTemplate((table.card_template as QRTemplate) || 'classic')
-    setCardBgColor(table.card_bg_color || '')
-    setCardBgImage(table.card_bg_image || '')
-    setCardTextColor(table.card_text_color || '')
-    setCardOverlay(table.card_overlay ?? 0)
-    setCardHeading(table.card_heading || '')
-    setCardSubtext(table.card_subtext || '')
-    setCardLabel(table.card_label || '')
-    setEditingField(null)
-    const url = `${BASE_URL}/table/${table.id}`
-    const dataUrl = await QRCode.toDataURL(url, { width: 300, margin: 2, color: { dark: '#1f2937', light: '#ffffff' } })
-    setQrDataUrl(dataUrl)
-  }
-
-  function downloadQR(table: RestaurantTable) {
-    if (!qrLib) return
-    const def = DEFAULT_TEXTS[cardTemplate]
-    const html = qrLib.getCardHTML(cardTemplate, table.table_number, cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || def.heading, cardSubtext || def.subtext, cardLabel || def.label, cardOverlay)
-    const win = window.open('', '_blank', 'width=400,height=640')
-    if (!win) return
-    win.document.write(html)
-    win.document.close()
-    win.focus()
-    setTimeout(() => { win.print() }, 300)
   }
 
   function openEdit(table: RestaurantTable) {
@@ -322,183 +243,25 @@ export default function TablesPage() {
       </Modal>
 
       {/* QR Code Modal */}
-      <Modal
-        isOpen={!!qrModal}
-        onClose={() => setQrModal(null)}
-        title={`QR Code — Table ${qrModal?.table_number}`}
-        size="lg"
-        headerExtra={
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5" title="Card Background">
-              <Palette className="w-5 h-5 text-gray-400" />
-              <input type="color"
-                value={cardBgColor || (qrLib?.TEMPLATES.find(x => x.id === cardTemplate)?.cardBg ?? '#ffffff')}
-                onChange={e => { setCardBgColor(e.target.value); setCardBgImage('') }}
-                className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
-              <label className={`cursor-pointer p-1 rounded border transition-colors ${uploading ? 'opacity-50 cursor-wait' : ''} ${cardBgImage ? 'border-orange-400 text-orange-500' : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-400'}`} title="Use image as background">
-                <ImageIcon className="w-4 h-4" />
-                <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={handleBgImageUpload} />
-              </label>
-              <button onClick={() => { setCardBgColor(''); setCardBgImage(''); setCardOverlay(0) }} className="text-xs text-gray-400 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300">Reset</button>
-            </div>
-            {cardBgImage && (
-              <div className="flex items-center gap-1.5" title="Photo layer — darker photo, clearer text">
-                <Layers className="w-5 h-5 text-gray-400" />
-                <input type="range" min={0} max={80} step={5} value={cardOverlay}
-                  onChange={e => setCardOverlay(Number(e.target.value))}
-                  className="w-20 accent-orange-500 cursor-pointer" />
-                <span className="text-[10px] text-gray-400 w-6">{cardOverlay}%</span>
-              </div>
-            )}
-            <div className="flex items-center gap-1.5" title="Text Color">
-              <Type className="w-5 h-5 text-gray-400" />
-              <input type="color"
-                value={cardTextColor || (qrLib?.TEMPLATES.find(x => x.id === cardTemplate)?.accent ?? '#111111')}
-                onChange={e => setCardTextColor(e.target.value)}
-                className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
-              <button onClick={() => setCardTextColor('')} className="text-xs text-gray-400 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300">Reset</button>
-            </div>
-          </div>
-        }
-      >
-        <div className="flex flex-col md:flex-row gap-5 md:h-145">
-
-          {/* Template selector */}
-          <div className="md:shrink-0">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Template</p>
-            <div className="grid grid-cols-4 md:grid-cols-2 gap-2">
-              {(qrLib?.TEMPLATES ?? []).map(t => (
-                <button key={t.id} onClick={() => setCardTemplate(t.id)}
-                  className={`w-full md:w-24 rounded-xl border-2 py-3 md:py-4 flex flex-col items-center gap-1.5 md:gap-2 transition-all cursor-pointer ${cardTemplate === t.id ? 'border-orange-400 shadow-sm' : 'border-gray-100 hover:border-gray-300'}`}
-                  style={{ background: t.cardBg }}>
-                  <div className="w-5 h-5 rounded-full border-2" style={{ borderColor: t.accent, background: t.accent + '33' }} />
-                  <span className="text-[10px] font-semibold text-center leading-tight" style={{ color: t.accent }}>{t.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* QR card + actions */}
-          <div className="flex-1 flex flex-col items-center gap-3 overflow-y-auto">
-            {(() => {
-              const t = qrLib?.TEMPLATES.find(x => x.id === cardTemplate) ?? qrLib?.TEMPLATES[0]
-              const activeBg = cardBgColor || t?.cardBg || '#ffffff'
-              const overlayLayer = cardOverlay > 0 ? `linear-gradient(rgba(0,0,0,${cardOverlay / 100}),rgba(0,0,0,${cardOverlay / 100})),` : ''
-              const activeBgStyle = cardBgImage
-                ? { backgroundImage: `${overlayLayer}url(${cardBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                : { background: activeBg }
-              const activeText = cardTextColor || t?.accent || '#111111'
-              const def = DEFAULT_TEXTS[cardTemplate]
-              const activeHeading = cardHeading || def.heading
-              const activeSubtext = cardSubtext || def.subtext
-              const activeLabel  = cardLabel  || def.label
-
-              const editable = (field: 'heading' | 'subtext' | 'label', className?: string, style?: React.CSSProperties) => {
-                const rawValue     = field === 'heading' ? cardHeading : field === 'subtext' ? cardSubtext : cardLabel
-                const displayValue = field === 'heading' ? activeHeading : field === 'subtext' ? activeSubtext : activeLabel
-                const setter       = field === 'heading' ? setCardHeading : field === 'subtext' ? setCardSubtext : setCardLabel
-                if (editingField === field) return (
-                  <input autoFocus value={rawValue}
-                    onChange={e => setter(e.target.value)}
-                    onBlur={() => setEditingField(null)}
-                    onKeyDown={e => e.key === 'Enter' && setEditingField(null)}
-                    className="bg-transparent border-b-2 border-dashed outline-none text-center w-full"
-                    style={style} />
-                )
-                return <span onClick={() => setEditingField(field)} className={`cursor-text border-b border-dashed border-transparent hover:border-current ${className ?? ''}`} style={style} title="Click to edit">{displayValue}</span>
-              }
-
-              if (cardTemplate === 'template3') return (
-                <div className="w-full max-w-[500px] mx-auto rounded-xl overflow-hidden shadow-xl" style={{ ...activeBgStyle, minHeight: 420 }}>
-                  <div className="py-2.5 px-5 text-center text-white text-xs font-extrabold tracking-[3px] uppercase" style={{ background: activeText }}>
-                    Table {qrModal?.table_number}
-                  </div>
-                  <div className="px-7 pt-6 pb-8 text-center flex flex-col items-center">
-                    {editable('subtext', 'text-sm font-bold tracking-[2px] uppercase mb-1 block', { color: activeText })}
-                    {editable('heading', 'font-black leading-none uppercase tracking-wide block', { fontSize: 52, fontFamily: 'Impact, Arial Black, sans-serif', color: activeText })}
-                    <div className="mt-5 p-2.5 bg-white rounded" style={{ border: `5px solid ${activeText}` }}>
-                      {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-40 h-40" />}  {/* eslint-disable-line @next/next/no-img-element */}
-                    </div>
-                  </div>
-                </div>
-              )
-
-              // New gradient templates: render the real card HTML in an iframe
-              // so the preview exactly matches what prints.
-              if (IFRAME_TEMPLATES.includes(cardTemplate) && qrLib && qrDataUrl) return (
-                <div className="w-full flex justify-center">
-                  <iframe
-                    title="QR card preview"
-                    srcDoc={qrLib.getCardHTML(cardTemplate, qrModal?.table_number || '', cardImage, qrDataUrl, cardBgColor || undefined, cardTextColor || undefined, cardBgImage || undefined, cardHeading || undefined, cardSubtext || undefined, cardLabel || undefined, cardOverlay)}
-                    className="rounded-2xl shadow-xl border border-gray-100 pointer-events-none bg-white max-w-full"
-                    style={{ width: 330, height: 460 }}
-                  />
-                </div>
-              )
-
-              if (cardTemplate === 'template4') return (
-                <div className="w-full max-w-[500px] mx-auto rounded-xl overflow-hidden shadow-xl flex flex-col items-center px-7 py-6 text-center" style={{ ...activeBgStyle, minHeight: 420 }}>
-                  <div className="text-3xl leading-none mb-1" style={{ color: activeText }}>❧</div>
-                  <hr className="w-full border-t-2 mb-4" style={{ borderColor: activeText }} />
-                  <div className="bg-white p-3 rounded mb-4">
-                    {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-40 h-40" />}  {/* eslint-disable-line @next/next/no-img-element */}
-                  </div>
-                  {editable('subtext', 'text-sm italic leading-tight block', { color: activeText })}
-                  {editable('heading', 'text-4xl font-black tracking-widest leading-tight block', { fontFamily: 'Georgia, serif', color: activeText })}
-                  <hr className="w-full border-t-2 mt-4 mb-2" style={{ borderColor: activeText }} />
-                  <p className="text-[10px] uppercase tracking-widest opacity-70" style={{ color: activeText }}>Table {qrModal?.table_number}</p>
-                </div>
-              )
-
-              const showImg = cardTemplate !== 'minimal'
-              return (
-                <div className="w-full max-w-[500px] mx-auto rounded-2xl overflow-hidden shadow-xl border border-gray-100" style={{ minHeight: 420 }}>
-                  {showImg && (
-                    <div className="h-44 overflow-hidden">
-                      {cardImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cardImage} alt="food" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${activeText}33, ${activeText}66)` }} />
-                      )}
-                    </div>
-                  )}
-                  <div className={`px-6 pb-5 text-center flex flex-col items-center justify-center ${showImg ? 'pt-6' : 'pt-0 h-[420px]'}`} style={activeBgStyle}>
-                    {qrDataUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={qrDataUrl} alt="QR" className="w-44 h-44 mx-auto mb-4" />
-                    )}
-                    <div className="flex items-center justify-center gap-3 mb-1">
-                      <span className="text-xl font-black italic" style={{ color: activeText }}>Table {qrModal?.table_number}</span>
-                      <span className="text-2xl font-light" style={{ color: activeText }}>|</span>
-                      <div className="text-left">
-                        {editable('label', 'text-[9px] tracking-[3px] uppercase leading-none font-semibold opacity-80 block', { color: activeText })}
-                        {editable('heading', 'text-2xl font-black uppercase leading-tight block', { color: activeText })}
-                      </div>
-                    </div>
-                    {editable('subtext', 'text-xs tracking-[2px] mt-1 font-medium opacity-80 block', { color: activeText })}
-                  </div>
-                </div>
-              )
-            })()}
-
-            {(cardTemplate === 'classic' || cardTemplate === 'template3') && (
-              <label className={`w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-xl py-2 text-sm transition-colors ${uploading ? 'text-gray-300 cursor-wait' : 'text-gray-500 hover:border-orange-400 hover:text-orange-500 cursor-pointer'}`}>
-                <Plus className="w-4 h-4" /> {uploading ? 'Uploading...' : 'Change Food Image'}
-                <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={handleCardImageUpload} />
-              </label>
-            )}
-
-            <div className="w-full flex gap-2">
-              <Button className="flex-1" loading={savingCard} onClick={saveCardSettings}>Save</Button>
-              <Button variant="outline" className="flex-1" onClick={() => qrModal && downloadQR(qrModal)}>
-                <Download className="w-4 h-4 mr-1.5" /> Print
-              </Button>
-            </div>
-          </div>
-
-        </div>
-      </Modal>
+      {qrModal && (
+        <QRCardEditorModal
+          isOpen={!!qrModal}
+          onClose={() => setQrModal(null)}
+          title={`QR Code — Table ${qrModal.table_number}`}
+          displayTitle={`Table ${qrModal.table_number}`}
+          qrUrl={`${BASE_URL}/table/${qrModal.id}`}
+          initial={qrModal}
+          onSave={async s => {
+            const res = await fetch(`/api/tables/${qrModal.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(s),
+            })
+            fetchTables()
+            return res.ok
+          }}
+        />
+      )}
 
       {/* Orders Detail Modal */}
       <Modal isOpen={!!detailTable} onClose={() => setDetailTable(null)}
@@ -549,7 +312,6 @@ export default function TablesPage() {
           </div>
         )}
       </Modal>
-      {cropModal}
     </div>
   )
 }

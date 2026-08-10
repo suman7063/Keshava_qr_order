@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Download, ChefHat, Upload, FileSpreadsheet, Maximize2, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download, ChefHat, Upload, FileSpreadsheet, Maximize2, X, QrCode, Check, LayoutTemplate } from 'lucide-react'
 import Link from 'next/link'
 import { parseCSV } from '@/lib/csv'
 import { VegMark } from '@/components/ui/VegMark'
 import { deleteImage } from '@/lib/uploadImage'
 import { useCropUpload } from '@/components/ui/useCropUpload'
 import { Toast, useToast } from '@/components/ui/Toast'
+import { QRCardEditorModal, QRCardSettings } from '@/components/qr/QRCardEditorModal'
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([])
@@ -33,6 +34,10 @@ export default function MenuPage() {
   const [pdfHeroImage, setPdfHeroImage] = useState('')
   const [showFullPreview, setShowFullPreview] = useState(false)
   const [restaurantName, setRestaurantName] = useState('Our Restaurant')
+  const [restaurantSub, setRestaurantSub] = useState('')
+  const [showMenuQr, setShowMenuQr] = useState(false)
+  const [menuQrSettings, setMenuQrSettings] = useState<QRCardSettings>({})
+  const [savingMenuCard, setSavingMenuCard] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [stations, setStations] = useState<KitchenStation[]>([])
   const [showImportModal, setShowImportModal] = useState(false)
   const [importRows, setImportRows] = useState<{ category: string; subcategory?: string; name: string; price: number; is_vegetarian: boolean; description?: string }[]>([])
@@ -83,7 +88,17 @@ export default function MenuPage() {
       setItems((Array.isArray(menuItems) ? menuItems : []).filter((i: MenuItem) => !i.is_archived))
       setStations(Array.isArray(stationList) ? stationList : [])
       setShowMenuImages(settings.show_menu_images ?? true)
+      if (settings.menu_pdf) {
+        const mp = settings.menu_pdf
+        if (mp.template) setPdfTemplateId(mp.template)
+        setPdfBgColor(mp.bgColor || '')
+        setPdfTextColor(mp.textColor || '')
+        setPdfSubTextColor(mp.subTextColor || '')
+        setPdfHeroImage(mp.heroImage || '')
+      }
+      if (settings.menu_qr) setMenuQrSettings(settings.menu_qr)
       if (restaurant?.name) setRestaurantName(restaurant.name)
+      if (restaurant?.subdomain) setRestaurantSub(restaurant.subdomain)
     } catch {
       showToast('Could not load menu data. Please refresh.')
     }
@@ -276,6 +291,41 @@ export default function MenuPage() {
     showToast('Menu exported as PDF!')
   }
 
+  const menuCardUrl = restaurantSub
+    ? `${process.env.NEXT_PUBLIC_MAIN_DOMAIN ? `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN}` : (typeof window !== 'undefined' ? window.location.origin : '')}/${restaurantSub}/menu-card`
+    : ''
+
+  /** Persist the current template + colours — the Menu QR page renders with these. */
+  async function saveMenuCardDesign() {
+    setSavingMenuCard('saving')
+    const res = await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        menu_pdf: {
+          template: pdfTemplateId,
+          bgColor: pdfBgColor || undefined,
+          textColor: pdfTextColor || undefined,
+          subTextColor: pdfSubTextColor || undefined,
+          heroImage: pdfHeroImage || undefined,
+        },
+      }),
+    })
+    if (res.ok) {
+      setSavingMenuCard('saved')
+      setTimeout(() => setSavingMenuCard('idle'), 2000)
+    } else {
+      setSavingMenuCard('idle')
+      showToast('Could not save the Menu QR design.')
+    }
+  }
+
+  async function openMenuQr() {
+    if (!menuCardUrl) { showToast('Restaurant link not loaded yet — try again.'); return }
+    if (!pdfLib) setPdfLib(await import('@/lib/pdf-templates'))
+    setShowMenuQr(true)
+  }
+
   function handlePdfHeroUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -419,6 +469,16 @@ export default function MenuPage() {
               <Download className="w-4 h-4" /> PDF
             </button>
           </div>
+          {/* Pick the style customers see after scanning the Menu QR */}
+          <button onClick={openPdfModal}
+            className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
+            <LayoutTemplate className="w-4 h-4" /> Menu Style
+          </button>
+          {/* View-only menu QR — scan shows the saved PDF template */}
+          <button onClick={openMenuQr}
+            className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors whitespace-nowrap">
+            <QrCode className="w-4 h-4" /> Menu QR
+          </button>
           {/* Customer view toggle */}
           <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
             <button
@@ -932,6 +992,12 @@ export default function MenuPage() {
 
             {/* Pinned footer — preview + download live in the drawer */}
             <div className="mt-auto border-t border-gray-100 p-4 space-y-2 shrink-0">
+              <button onClick={saveMenuCardDesign} disabled={savingMenuCard === 'saving'}
+                className={`w-full flex items-center justify-center gap-2 border rounded-xl py-2.5 text-sm font-semibold transition-colors cursor-pointer ${savingMenuCard === 'saved' ? 'border-green-300 text-green-600 bg-green-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                {savingMenuCard === 'saved'
+                  ? <><Check className="w-4 h-4" /> Saved — Menu QR uses this</>
+                  : <><QrCode className="w-4 h-4" /> {savingMenuCard === 'saving' ? 'Saving…' : 'Save for Menu QR'}</>}
+              </button>
               <button onClick={() => setShowFullPreview(true)}
                 className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 rounded-xl py-2.5 text-sm font-semibold transition-colors cursor-pointer">
                 <Maximize2 className="w-4 h-4" /> Preview ({items.filter(i => i.is_available).length} items)
@@ -943,6 +1009,29 @@ export default function MenuPage() {
             </div>
           </div>
         </>
+      )}
+      {/* Menu QR — view-only menu card, same editor as table QR cards */}
+      {showMenuQr && (
+        <QRCardEditorModal
+          isOpen={showMenuQr}
+          onClose={() => setShowMenuQr(false)}
+          title="Menu QR"
+          displayTitle={restaurantName}
+          qrUrl={menuCardUrl}
+          initial={menuQrSettings}
+          defaultSubtext="Scan to see our menu"
+          note="Scanning this shows a view-only menu (no ordering) in the style set under Menu Style."
+          onSave={async s => {
+            const res = await fetch('/api/settings', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ menu_qr: s }),
+            })
+            if (res.ok) { setMenuQrSettings(s); showToast('Menu QR card saved!') }
+            else showToast('Could not save the Menu QR card.')
+            return res.ok
+          }}
+        />
       )}
       {/* Expanded full-screen menu preview */}
       {showFullPreview && (
