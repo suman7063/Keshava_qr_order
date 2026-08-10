@@ -1,10 +1,16 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPdfHTML, PDF_TEMPLATES } from '@/lib/pdf-templates'
+import { getPdfHTML, PDF_TEMPLATES, type PdfOptions } from '@/lib/pdf-templates'
 import type { MenuItem, MenuCategory } from '@/types'
 
 // Read-only menu card: scanning the Menu QR lands here. No ordering, no
 // actions — just the menu rendered in whatever PDF template (+ colours)
-// the owner saved from Admin → Menu → PDF, plus a print button.
+// the owner saved from Admin → Menu → Menu Style.
+//
+// Cached & regenerated at most every 60s so scans are instant; saving a
+// new style revalidates the path immediately (see the settings PATCH).
+export const dynamic = 'force-static'
+export const revalidate = 60
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -36,9 +42,7 @@ export async function GET(
       .single(),
   ])
 
-  const saved = (settings?.menu_pdf ?? {}) as {
-    template?: string; bgColor?: string; textColor?: string; subTextColor?: string; heroImage?: string
-  }
+  const saved = (settings?.menu_pdf ?? {}) as { template?: string } & PdfOptions
   const templateId = PDF_TEMPLATES.some(t => t.id === saved.template) ? saved.template! : 'pdf1'
 
   let html = getPdfHTML(
@@ -46,29 +50,24 @@ export async function GET(
     (cats ?? []) as MenuCategory[],
     (menuItems ?? []) as MenuItem[],
     restaurant.name,
-    { bgColor: saved.bgColor, textColor: saved.textColor, subTextColor: saved.subTextColor, heroImage: saved.heroImage }
+    saved
   )
 
-  // View-only page extras: no indexing, mobile viewport, floating print
-  // button (hidden on paper).
+  // View-only page extras: no indexing, mobile viewport. Deliberately no
+  // print button — this page is what CUSTOMERS see after a scan; the owner
+  // prints from Admin → Menu → Menu Style instead.
   html = html.replace('</head>', `
     <meta name="robots" content="noindex"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <style>
-      .menu-card-print{position:fixed;bottom:18px;right:18px;z-index:50;display:flex;align-items:center;gap:8px;
-        background:#f97316;color:#fff;border:none;border-radius:999px;padding:12px 20px;font-size:14px;
-        font-weight:600;font-family:system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
-      @media print{.menu-card-print{display:none;}}
+      /* Phones: shrink the whole design uniformly (text, spacing, columns)
+         so desktop-sized templates fit a narrow screen without breaking. */
+      @media (max-width: 640px){ body{ zoom: 0.75; } }
+      @media (max-width: 400px){ body{ zoom: 0.65; } }
     </style>
   </head>`)
-  html = html.replace('</body>', `
-    <button class="menu-card-print" onclick="window.print()">🖨 Print</button>
-  </body>`)
 
   return new Response(html, {
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600',
-    },
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
   })
 }
