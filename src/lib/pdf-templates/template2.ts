@@ -18,7 +18,7 @@ export function getPdf2HTML(categories: MenuCategory[], items: MenuItem[], resta
       <div class="cat-title">${cat.name}</div>
       ${ci.map(item => `
         <div class="item ${item.is_available ? '' : 'unavailable'}">
-          <span class="name">${item.name}${item.is_vegetarian ? ' <span class="veg">●</span>' : ''}</span>
+          <span class="name">${item.name}${item.is_vegetarian ? ' <span class="veg">●</span>' : ''}${item.description ? `<span class="desc">${item.description}</span>` : ''}</span>
           <span class="price">₹ ${Number(item.price).toFixed(0)}</span>
         </div>`).join('')}
     </div>`).join('')
@@ -37,6 +37,7 @@ export function getPdf2HTML(categories: MenuCategory[], items: MenuItem[], resta
     .item:last-child{border:none;}
     .name{font-size:13px;font-family:Arial,sans-serif;font-weight:400;color:${options.subTextColor || '#f0ece4'};}
     .veg{color:#4ade80;font-size:9px;}
+    .desc{display:block;font-size:9.5px;font-family:Arial,sans-serif;color:${options.subTextColor || '#f0ece4'};opacity:0.55;margin-top:1px;}
     .price{font-size:13px;font-family:Arial,sans-serif;color:${options.subTextColor || '#f0ece4'};white-space:nowrap;margin-left:8px;}
     .unavailable{opacity:0.3;}
     .footer{text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid ${options.textColor || '#c9a227'};font-size:11px;color:#888;letter-spacing:2px;font-family:Arial,sans-serif;}

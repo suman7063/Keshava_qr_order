@@ -37,6 +37,7 @@ export function getPdf3HTML(categories: MenuCategory[], items: MenuItem[], resta
     .cat-title{font-size:18px;font-weight:700;color:${options.textColor || '#2d6a2d'};letter-spacing:4px;text-transform:uppercase;margin-bottom:12px;font-family:Georgia,serif;}
     .item{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${options.subTextColor || '#2c2c2c'};margin-bottom:7px;font-family:Arial,sans-serif;}
     .price{color:#888;margin-left:6px;font-size:10px;}
+    .desc{font-size:8.5px;color:#999;letter-spacing:0.3px;margin-top:1px;text-transform:none;font-family:Arial,sans-serif;}
     .unavailable{opacity:0.35;}
     @media print{
       body{padding:0;}
@@ -56,7 +57,7 @@ export function getPdf3HTML(categories: MenuCategory[], items: MenuItem[], resta
             <div class="cat-title">${cat.name}</div>
             ${ci.map(item => `
               <div class="item ${item.is_available ? '' : 'unavailable'}">
-                ${item.name}<span class="price">· ₹${Number(item.price).toFixed(0)}</span>
+                ${item.name}<span class="price">· ₹${Number(item.price).toFixed(0)}</span>${item.description ? `<div class="desc">${item.description}</div>` : ''}
               </div>`).join('')}
           </div>`).join('')}
         <div style="margin-top:24px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:${options.textColor || '#2d6a2d'};font-family:Arial,sans-serif;">${restaurantName}</div>

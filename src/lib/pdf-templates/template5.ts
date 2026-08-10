@@ -37,6 +37,7 @@ export function getPdf5HTML(categories: MenuCategory[], items: MenuItem[], resta
     .bullet{color:${options.textColor || '#f5a623'};margin-right:8px;font-size:10px;}
     .name{flex:1;color:${options.subTextColor || '#e0e0e0'};}
     .price{font-weight:700;color:#fff;white-space:nowrap;margin-left:16px;}
+    .desc{display:block;font-size:10px;color:#9a9a9a;margin-top:1px;}
     .unavailable{opacity:0.35;}
     .rest-footer{margin-top:20px;font-size:10px;color:#555;letter-spacing:2px;text-transform:uppercase;text-align:right;}
     @media print{
@@ -67,7 +68,7 @@ export function getPdf5HTML(categories: MenuCategory[], items: MenuItem[], resta
             ${ci.map(item => `
               <div class="item ${item.is_available ? '' : 'unavailable'}">
                 <span class="bullet">●</span>
-                <span class="name">${item.name}${item.is_vegetarian ? ' <span style="color:#4ade80;font-size:9px">●</span>' : ''}</span>
+                <span class="name">${item.name}${item.is_vegetarian ? ' <span style="color:#4ade80;font-size:9px">●</span>' : ''}${item.description ? `<span class="desc">${item.description}</span>` : ''}</span>
                 <span class="price">₹${Number(item.price).toFixed(0)}</span>
               </div>`).join('')}
           </div>`).join('')}

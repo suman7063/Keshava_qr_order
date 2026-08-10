@@ -18,7 +18,7 @@ export function getPdf6HTML(categories: MenuCategory[], items: MenuItem[], resta
 
   const itemRow = (item: MenuItem) => `
     <div class="item ${item.is_available ? '' : 'unavailable'}">
-      <span class="name">${item.name}${item.is_vegetarian ? ' <span class="veg">●</span>' : ''}</span>
+      <span class="name">${item.name}${item.is_vegetarian ? ' <span class="veg">●</span>' : ''}${item.description ? `<span class="desc">${item.description}</span>` : ''}</span>
       <span class="price">₹${Number(item.price).toFixed(0)}</span>
     </div>`
 
@@ -69,6 +69,7 @@ export function getPdf6HTML(categories: MenuCategory[], items: MenuItem[], resta
     .item{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6.5px 4px;
       border-bottom:1px solid ${brown}1f;break-inside:avoid;}
     .item:last-child{border-bottom:none;}
+    .desc{display:block;font-size:9.5px;font-weight:400;color:${brown}99;margin-top:1px;}
     .name{font-size:12.5px;font-weight:700;color:${brown};}
     .veg{color:#3f9e3f;font-size:9px;}
     .price{font-size:12.5px;font-weight:800;color:${brown};white-space:nowrap;}

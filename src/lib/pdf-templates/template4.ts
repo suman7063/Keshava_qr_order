@@ -56,6 +56,7 @@ export function getPdf4HTML(categories: MenuCategory[], items: MenuItem[], resta
     .item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px dashed #d4b896;}
     .item:last-child{border:none;}
     .name{font-size:13px;color:${options.subTextColor || '#2c1a0a'};font-weight:500;}
+    .desc{display:block;font-size:10px;font-weight:400;color:${options.subTextColor || '#2c1a0a'}99;margin-top:1px;}
     .price{font-size:13px;color:${options.subTextColor || '#2c1a0a'};font-weight:600;white-space:nowrap;margin-left:12px;}
     .veg{font-size:9px;color:#2d7a2d;margin-left:4px;}
     .unavailable{opacity:0.35;}
@@ -78,7 +79,7 @@ export function getPdf4HTML(categories: MenuCategory[], items: MenuItem[], resta
           <div class="cat-title">${cat.name}</div>
           ${ci.map(item => `
             <div class="item ${item.is_available ? '' : 'unavailable'}">
-              <span class="name">${item.name}${item.is_vegetarian ? '<span class="veg">●</span>' : ''}</span>
+              <span class="name">${item.name}${item.is_vegetarian ? '<span class="veg">●</span>' : ''}${item.description ? `<span class="desc">${item.description}</span>` : ''}</span>
               <span class="price">₹${Number(item.price).toFixed(2)}</span>
             </div>`).join('')}
         </div>`).join('')}
