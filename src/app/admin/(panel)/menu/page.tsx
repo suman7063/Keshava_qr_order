@@ -15,10 +15,26 @@ import { useCropUpload } from '@/components/ui/useCropUpload'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { QRCardEditorModal, QRCardSettings } from '@/components/qr/QRCardEditorModal'
 
+const PAGE_SIZE = 10
+
+/** Compact pager: 1 … 4 5 6 … 12 */
+function pageList(cur: number, total: number): (number | '…')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const marks = [...new Set([1, 2, cur - 1, cur, cur + 1, total - 1, total])]
+    .filter(n => n >= 1 && n <= total).sort((a, b) => a - b)
+  const out: (number | '…')[] = []
+  marks.forEach((n, i) => {
+    if (i > 0 && n - marks[i - 1] > 1) out.push('…')
+    out.push(n)
+  })
+  return out
+}
+
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<MenuItem | null>(null)
   const [saving, setSaving] = useState(false)
@@ -417,6 +433,15 @@ export default function MenuPage() {
   }
 
   const filteredItems = activeCategory ? items.filter(i => i.category_id === activeCategory) : items
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE))
+  const curPage = Math.min(page, totalPages)
+  const pagedItems = filteredItems.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE)
+
+  function goToPage(n: number) {
+    setPage(n)
+    // the admin shell scrolls inside <main>, not the window
+    document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // PDF thumbnails: preview only categories that actually have available
   // items, a few items each — empty first-categories used to blank them out.
@@ -501,7 +526,7 @@ export default function MenuPage() {
       {/* Category filter tabs */}
       <div className="flex gap-2 mb-6 border-b border-gray-200 pb-4 overflow-x-auto scrollbar-none">
         <button
-          onClick={() => setActiveCategory(null)}
+          onClick={() => { setActiveCategory(null); setPage(1) }}
           className={`whitespace-nowrap shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${!activeCategory ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
         >
           All ({items.length})
@@ -509,7 +534,7 @@ export default function MenuPage() {
         {categories.map(cat => (
           <button
             key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
+            onClick={() => { setActiveCategory(cat.id); setPage(1) }}
             className={`whitespace-nowrap shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeCategory === cat.id ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
           >
             {cat.name} ({items.filter(i => i.category_id === cat.id).length})
@@ -531,7 +556,7 @@ export default function MenuPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {filteredItems.map(item => (
+            {pagedItems.map(item => (
               <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
@@ -586,7 +611,7 @@ export default function MenuPage() {
 
         {/* Mobile cards — each item is its own card */}
         <div className="md:hidden space-y-3">
-          {filteredItems.map(item => (
+          {pagedItems.map(item => (
             <div key={item.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex gap-3">
               {showMenuImages && (
                 item.image_url
@@ -633,6 +658,36 @@ export default function MenuPage() {
           <div className="text-center py-12 text-gray-400">No items in this category</div>
         )}
       </div>
+
+      {/* Pagination — sticky at the bottom of the viewport so it's always
+          reachable without scrolling past the whole page of items */}
+      {filteredItems.length > PAGE_SIZE && (
+        <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-8 px-4 lg:px-8 py-3 mt-4 bg-gray-50/95 backdrop-blur border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
+          <p className="text-xs text-gray-400">
+            Showing {(curPage - 1) * PAGE_SIZE + 1}–{Math.min(curPage * PAGE_SIZE, filteredItems.length)} of {filteredItems.length} items
+          </p>
+          <div className="flex items-center gap-1">
+            <button onClick={() => goToPage(curPage - 1)} disabled={curPage === 1}
+              className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-default cursor-pointer">
+              ‹
+            </button>
+            {pageList(curPage, totalPages).map((n, i) =>
+              n === '…' ? (
+                <span key={`e${i}`} className="px-1.5 text-gray-300 text-sm">…</span>
+              ) : (
+                <button key={n} onClick={() => goToPage(n)}
+                  className={`min-w-9 px-2.5 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${n === curPage ? 'bg-orange-500 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                  {n}
+                </button>
+              )
+            )}
+            <button onClick={() => goToPage(curPage + 1)} disabled={curPage === totalPages}
+              className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-default cursor-pointer">
+              ›
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editItem ? 'Edit Item' : 'Add Menu Item'} size="lg">
